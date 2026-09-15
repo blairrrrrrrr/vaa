@@ -5,269 +5,951 @@ import jwt from 'jsonwebtoken'
 import { prisma } from '../src/lib/prisma'
 
 const app = express()
-const PORT = process.env.PORT || 3001
-const JWT_SECRET = process.env.JWT_SECRET || 'your-super-secret-jwt-key-change-this-in-production'
 
-app.use(cors())
-app.use(express.json())
+const PORT = Number(process.env.PORT) || 3001
 
-// Helper function to generate JWT token
-const generateToken = (userId: string, role: string) => {
-  return jwt.sign({ userId, role }, JWT_SECRET, { expiresIn: '7d' })
+const JWT_SECRET = process.env.JWT_SECRET
+
+if (!JWT_SECRET) {
+  throw new Error('JWT_SECRET is required')
 }
 
-// Helper function to verify JWT token
-const verifyToken = (token: string) => {
+const CLIENT_URL =
+  process.env.CLIENT_URL || 'http://localhost:5173'
+
+app.use(
+  cors({
+    origin: CLIENT_URL,
+    credentials: true,
+  })
+)
+
+app.use(express.json())
+
+interface AuthUser {
+  userId: string
+  role: 'CUSTOMER' | 'BRAND' | 'ADMIN'
+}
+
+const generateToken = (
+  userId: string,
+  role: AuthUser['role']
+) => {
+  return jwt.sign(
+    { userId, role },
+    JWT_SECRET,
+    { expiresIn: '7d' }
+  )
+}
+
+const verifyToken = (
+  token: string
+): AuthUser | null => {
   try {
-    return jwt.verify(token, JWT_SECRET) as { userId: string; role: string }
+    return jwt.verify(
+      token,
+      JWT_SECRET
+    ) as AuthUser
   } catch {
     return null
   }
 }
 
-// Middleware to authenticate requests
-const authenticate = (req: any, res: any, next: any) => {
+const authenticate = (
+  req: any,
+  res: any,
+  next: any
+) => {
   const authHeader = req.headers.authorization
-  if (!authHeader || !authHeader.startsWith('Bearer ')) {
-    return res.status(401).json({ error: 'Unauthorized' })
+
+  if (
+    !authHeader ||
+    !authHeader.startsWith('Bearer ')
+  ) {
+    return res.status(401).json({
+      error: 'Unauthorized',
+    })
   }
 
   const token = authHeader.substring(7)
   const decoded = verifyToken(token)
+
   if (!decoded) {
-    return res.status(401).json({ error: 'Invalid token' })
+    return res.status(401).json({
+      error: 'Invalid or expired token',
+    })
   }
 
   req.user = decoded
   next()
 }
 
-// Customer Sign Up
+const requireRole = (...roles: AuthUser['role'][]) => {
+  return (req: any, res: any, next: any) => {
+    if (!roles.includes(req.user.role)) {
+      return res.status(403).json({
+        error: 'Forbidden',
+      })
+    }
+
+    next()
+  }
+}
+
+/* =========================
+   AUTH
+========================= */
+
 app.post('/api/auth/signup', async (req, res) => {
   try {
-    const { email, password, name } = req.body
+    const {
+      email,
+      password,
+      name,
+    } = req.body
 
-    const existingUser = await prisma.user.findUnique({ where: { email } })
-    if (existingUser) {
-      return res.status(400).json({ error: 'Email already exists' })
+    if (!email || !password) {
+      return res.status(400).json({
+        error: 'Email and password are required',
+      })
     }
 
-    const hashedPassword = await bcrypt.hash(password, 10)
-    const user = await prisma.user.create({
-      data: {
-        email,
-        password: hashedPassword,
-        name,
-        role: 'CUSTOMER'
-      }
-    })
-
-    const token = generateToken(user.id, user.role)
-    res.json({ token, user: { id: user.id, email: user.email, name: user.name, role: user.role } })
-  } catch (error) {
-    res.status(500).json({ error: 'Internal server error' })
-  }
-})
-
-// Brand Sign Up
-app.post('/api/auth/brand-signup', async (req, res) => {
-  try {
-    const { email, password, name, brandName, category } = req.body
-
-    const existingUser = await prisma.user.findUnique({ where: { email } })
-    if (existingUser) {
-      return res.status(400).json({ error: 'Email already exists' })
+    if (password.length < 6) {
+      return res.status(400).json({
+        error:
+          'Password must be at least 6 characters',
+      })
     }
 
-    const hashedPassword = await bcrypt.hash(password, 10)
+    const normalizedEmail =
+      String(email).trim().toLowerCase()
+
+    const existingUser =
+      await prisma.user.findUnique({
+        where: {
+          email: normalizedEmail,
+        },
+      })
+
+    if (existingUser) {
+      return res.status(400).json({
+        error: 'Email already exists',
+      })
+    }
+
+    const hashedPassword =
+      await bcrypt.hash(password, 12)
+
     const user = await prisma.user.create({
       data: {
-        email,
+        email: normalizedEmail,
         password: hashedPassword,
-        name,
-        role: 'BRAND',
-        brand: {
-          create: {
-            name: brandName,
-            category,
-            status: 'pending'
-          }
-        }
+        name: name || null,
+        role: 'CUSTOMER',
       },
-      include: {
-        brand: true
+    })
+
+    const token = generateToken(
+      user.id,
+      user.role
+    )
+
+    res.status(201).json({
+      token,
+      user: {
+        id: user.id,
+        email: user.email,
+        name: user.name,
+        role: user.role,
+      },
+    })
+  } catch (error) {
+    console.error(error)
+
+    res.status(500).json({
+      error: 'Internal server error',
+    })
+  }
+})
+
+app.post(
+  '/api/auth/brand-signup',
+  async (req, res) => {
+    try {
+      const {
+        email,
+        password,
+        name,
+        brandName,
+        category,
+      } = req.body
+
+      if (
+        !email ||
+        !password ||
+        !brandName
+      ) {
+        return res.status(400).json({
+          error:
+            'Email, password and brand name are required',
+        })
       }
-    })
 
-    const token = generateToken(user.id, user.role)
-    res.json({ 
-      token, 
-      user: { id: user.id, email: user.email, name: user.name, role: user.role },
-      brand: user.brand
-    })
-  } catch (error) {
-    res.status(500).json({ error: 'Internal server error' })
-  }
-})
+      if (password.length < 6) {
+        return res.status(400).json({
+          error:
+            'Password must be at least 6 characters',
+        })
+      }
 
-// Sign In
-app.post('/api/auth/signin', async (req, res) => {
-  try {
-    const { email, password } = req.body
+      const normalizedEmail =
+        String(email).trim().toLowerCase()
 
-    const user = await prisma.user.findUnique({ where: { email } })
-    if (!user) {
-      return res.status(401).json({ error: 'Invalid credentials' })
-    }
+      const existingUser =
+        await prisma.user.findUnique({
+          where: {
+            email: normalizedEmail,
+          },
+        })
 
-    const validPassword = await bcrypt.compare(password, user.password)
-    if (!validPassword) {
-      return res.status(401).json({ error: 'Invalid credentials' })
-    }
+      if (existingUser) {
+        return res.status(400).json({
+          error: 'Email already exists',
+        })
+      }
 
-    const token = generateToken(user.id, user.role)
-    const userData = { id: user.id, email: user.email, name: user.name, role: user.role }
-    
-    if (user.role === 'BRAND') {
-      const brand = await prisma.brand.findUnique({ where: { userId: user.id } })
-      res.json({ token, user: userData, brand })
-    } else {
-      res.json({ token, user: userData })
-    }
-  } catch (error) {
-    res.status(500).json({ error: 'Internal server error' })
-  }
-})
+      const hashedPassword =
+        await bcrypt.hash(password, 12)
 
-// Admin Sign In
-app.post('/api/auth/admin-signin', async (req, res) => {
-  try {
-    const { email, password } = req.body
+      const user =
+        await prisma.user.create({
+          data: {
+            email: normalizedEmail,
+            password: hashedPassword,
+            name: name || null,
+            role: 'BRAND',
 
-    const user = await prisma.user.findUnique({ where: { email } })
-    if (!user || user.role !== 'ADMIN') {
-      return res.status(401).json({ error: 'Invalid admin credentials' })
-    }
+            brand: {
+              create: {
+                name: brandName.trim(),
+                category: category || null,
+                status: 'pending',
+              },
+            },
+          },
 
-    const validPassword = await bcrypt.compare(password, user.password)
-    if (!validPassword) {
-      return res.status(401).json({ error: 'Invalid credentials' })
-    }
-
-    const token = generateToken(user.id, user.role)
-    res.json({ token, user: { id: user.id, email: user.email, name: user.name, role: user.role } })
-  } catch (error) {
-    res.status(500).json({ error: 'Internal server error' })
-  }
-})
-
-// Get current user
-app.get('/api/auth/me', authenticate, async (req: any, res) => {
-  try {
-    const user = await prisma.user.findUnique({
-      where: { id: req.user.userId },
-      select: { id: true, email: true, name: true, role: true }
-    })
-    res.json(user)
-  } catch (error) {
-    res.status(500).json({ error: 'Internal server error' })
-  }
-})
-
-// Get all products
-app.get('/api/products', async (req, res) => {
-  try {
-    const products = await prisma.product.findMany({
-      include: {
-        brand: {
           include: {
-            user: true
-          }
+            brand: true,
+          },
+        })
+
+      const token = generateToken(
+        user.id,
+        user.role
+      )
+
+      res.status(201).json({
+        token,
+
+        user: {
+          id: user.id,
+          email: user.email,
+          name: user.name,
+          role: user.role,
+        },
+
+        brand: user.brand,
+      })
+    } catch (error) {
+      console.error(error)
+
+      res.status(500).json({
+        error: 'Internal server error',
+      })
+    }
+  }
+)
+
+app.post(
+  '/api/auth/signin',
+  async (req, res) => {
+    try {
+      const { email, password } = req.body
+
+      const normalizedEmail =
+        String(email)
+          .trim()
+          .toLowerCase()
+
+      const user =
+        await prisma.user.findUnique({
+          where: {
+            email: normalizedEmail,
+          },
+        })
+
+      if (!user) {
+        return res.status(401).json({
+          error: 'Invalid credentials',
+        })
+      }
+
+      const validPassword =
+        await bcrypt.compare(
+          password,
+          user.password
+        )
+
+      if (!validPassword) {
+        return res.status(401).json({
+          error: 'Invalid credentials',
+        })
+      }
+
+      const token = generateToken(
+        user.id,
+        user.role
+      )
+
+      const userData = {
+        id: user.id,
+        email: user.email,
+        name: user.name,
+        role: user.role,
+      }
+
+      if (user.role === 'BRAND') {
+        const brand =
+          await prisma.brand.findUnique({
+            where: {
+              userId: user.id,
+            },
+          })
+
+        return res.json({
+          token,
+          user: userData,
+          brand,
+        })
+      }
+
+      return res.json({
+        token,
+        user: userData,
+      })
+    } catch (error) {
+      console.error(error)
+
+      res.status(500).json({
+        error: 'Internal server error',
+      })
+    }
+  }
+)
+
+app.post(
+  '/api/auth/admin-signin',
+  async (req, res) => {
+    try {
+      const { email, password } = req.body
+
+      const normalizedEmail =
+        String(email)
+          .trim()
+          .toLowerCase()
+
+      const user =
+        await prisma.user.findUnique({
+          where: {
+            email: normalizedEmail,
+          },
+        })
+
+      if (
+        !user ||
+        user.role !== 'ADMIN'
+      ) {
+        return res.status(401).json({
+          error: 'Invalid admin credentials',
+        })
+      }
+
+      const validPassword =
+        await bcrypt.compare(
+          password,
+          user.password
+        )
+
+      if (!validPassword) {
+        return res.status(401).json({
+          error: 'Invalid credentials',
+        })
+      }
+
+      const token = generateToken(
+        user.id,
+        user.role
+      )
+
+      res.json({
+        token,
+        user: {
+          id: user.id,
+          email: user.email,
+          name: user.name,
+          role: user.role,
+        },
+      })
+    } catch (error) {
+      console.error(error)
+
+      res.status(500).json({
+        error: 'Internal server error',
+      })
+    }
+  }
+)
+
+app.get(
+  '/api/auth/me',
+  authenticate,
+  async (req: any, res) => {
+    try {
+      const user =
+        await prisma.user.findUnique({
+          where: {
+            id: req.user.userId,
+          },
+
+          select: {
+            id: true,
+            email: true,
+            name: true,
+            role: true,
+          },
+        })
+
+      if (!user) {
+        return res.status(404).json({
+          error: 'User not found',
+        })
+      }
+
+      res.json(user)
+    } catch (error) {
+      console.error(error)
+
+      res.status(500).json({
+        error: 'Internal server error',
+      })
+    }
+  }
+)
+
+/* =========================
+   PRODUCTS - PUBLIC
+========================= */
+
+app.get('/api/products', async (_req, res) => {
+  try {
+    const products =
+      await prisma.product.findMany({
+        include: {
+          brand: {
+            select: {
+              id: true,
+              name: true,
+              description: true,
+              category: true,
+              status: true,
+            },
+          },
+        },
+
+        orderBy: {
+          createdAt: 'desc',
+        },
+      })
+
+    res.json(products)
+  } catch (error) {
+    console.error(error)
+
+    res.status(500).json({
+      error: 'Internal server error',
+    })
+  }
+})
+
+app.get(
+  '/api/products/:productId',
+  async (req, res) => {
+    try {
+      const product =
+        await prisma.product.findUnique({
+          where: {
+            id: req.params.productId,
+          },
+
+          include: {
+            brand: {
+              select: {
+                id: true,
+                name: true,
+                description: true,
+                category: true,
+                status: true,
+              },
+            },
+          },
+        })
+
+      if (!product) {
+        return res.status(404).json({
+          error: 'Product not found',
+        })
+      }
+
+      res.json(product)
+    } catch (error) {
+      console.error(error)
+
+      res.status(500).json({
+        error: 'Internal server error',
+      })
+    }
+  }
+)
+
+app.get(
+  '/api/products/brand/:brandId',
+  async (req, res) => {
+    try {
+      const products =
+        await prisma.product.findMany({
+          where: {
+            brandId: req.params.brandId,
+          },
+
+          include: {
+            brand: {
+              select: {
+                id: true,
+                name: true,
+                description: true,
+                category: true,
+                status: true,
+              },
+            },
+          },
+
+          orderBy: {
+            createdAt: 'desc',
+          },
+        })
+
+      res.json(products)
+    } catch (error) {
+      console.error(error)
+
+      res.status(500).json({
+        error: 'Internal server error',
+      })
+    }
+  }
+)
+
+/* =========================
+   BRAND PRODUCTS
+========================= */
+
+app.post(
+  '/api/products',
+  authenticate,
+  requireRole('BRAND'),
+  async (req: any, res) => {
+    try {
+      const {
+        name,
+        description,
+        price,
+        stock,
+        imageUrl,
+        category,
+      } = req.body
+
+      if (
+        !name ||
+        !description ||
+        price === undefined ||
+        !category
+      ) {
+        return res.status(400).json({
+          error:
+            'Name, description, price and category are required',
+        })
+      }
+
+      const numericPrice =
+        Number(price)
+
+      const numericStock =
+        Number(stock ?? 0)
+
+      if (
+        !Number.isFinite(numericPrice) ||
+        numericPrice < 0
+      ) {
+        return res.status(400).json({
+          error: 'Invalid price',
+        })
+      }
+
+      if (
+        !Number.isInteger(numericStock) ||
+        numericStock < 0
+      ) {
+        return res.status(400).json({
+          error: 'Invalid stock',
+        })
+      }
+
+      const brand =
+        await prisma.brand.findUnique({
+          where: {
+            userId: req.user.userId,
+          },
+        })
+
+      if (!brand) {
+        return res.status(404).json({
+          error: 'Brand not found',
+        })
+      }
+
+      const product =
+        await prisma.product.create({
+          data: {
+            name: String(name).trim(),
+            description:
+              String(description).trim(),
+            price: numericPrice,
+            stock: numericStock,
+            imageUrl:
+              imageUrl || null,
+            category:
+              String(category).trim(),
+
+            // NEVER accept brandId from client
+            brandId: brand.id,
+          },
+        })
+
+      res.status(201).json(product)
+    } catch (error) {
+      console.error(error)
+
+      res.status(500).json({
+        error: 'Internal server error',
+      })
+    }
+  }
+)
+
+app.patch(
+  '/api/products/:productId',
+  authenticate,
+  requireRole('BRAND'),
+  async (req: any, res) => {
+    try {
+      const brand =
+        await prisma.brand.findUnique({
+          where: {
+            userId: req.user.userId,
+          },
+        })
+
+      if (!brand) {
+        return res.status(404).json({
+          error: 'Brand not found',
+        })
+      }
+
+      const product =
+        await prisma.product.findFirst({
+          where: {
+            id: req.params.productId,
+            brandId: brand.id,
+          },
+        })
+
+      if (!product) {
+        return res.status(404).json({
+          error: 'Product not found',
+        })
+      }
+
+      const {
+        name,
+        description,
+        price,
+        stock,
+        imageUrl,
+        category,
+      } = req.body
+
+      const data: any = {}
+
+      if (name !== undefined) {
+        data.name = String(name).trim()
+      }
+
+      if (description !== undefined) {
+        data.description =
+          String(description).trim()
+      }
+
+      if (price !== undefined) {
+        const numericPrice = Number(price)
+
+        if (
+          !Number.isFinite(numericPrice) ||
+          numericPrice < 0
+        ) {
+          return res.status(400).json({
+            error: 'Invalid price',
+          })
         }
+
+        data.price = numericPrice
       }
-    })
-    res.json(products)
-  } catch (error) {
-    res.status(500).json({ error: 'Internal server error' })
-  }
-})
 
-// Get products by brand
-app.get('/api/products/brand/:brandId', async (req, res) => {
-  try {
-    const products = await prisma.product.findMany({
-      where: { brandId: req.params.brandId },
-      include: {
-        brand: true
+      if (stock !== undefined) {
+        const numericStock = Number(stock)
+
+        if (
+          !Number.isInteger(numericStock) ||
+          numericStock < 0
+        ) {
+          return res.status(400).json({
+            error: 'Invalid stock',
+          })
+        }
+
+        data.stock = numericStock
       }
-    })
-    res.json(products)
-  } catch (error) {
-    res.status(500).json({ error: 'Internal server error' })
-  }
-})
 
-// Create product (Brand only)
-app.post('/api/products', authenticate, async (req: any, res) => {
-  try {
-    if (req.user.role !== 'BRAND') {
-      return res.status(403).json({ error: 'Forbidden' })
-    }
-
-    const brand = await prisma.brand.findUnique({ where: { userId: req.user.userId } })
-    if (!brand) {
-      return res.status(400).json({ error: 'Brand not found' })
-    }
-
-    const product = await prisma.product.create({
-      data: {
-        ...req.body,
-        brandId: brand.id
+      if (imageUrl !== undefined) {
+        data.imageUrl = imageUrl || null
       }
-    })
-    res.json(product)
-  } catch (error) {
-    res.status(500).json({ error: 'Internal server error' })
-  }
-})
 
-// Get all brands (Admin)
-app.get('/api/brands', authenticate, async (req: any, res) => {
-  try {
-    if (req.user.role !== 'ADMIN') {
-      return res.status(403).json({ error: 'Forbidden' })
-    }
-
-    const brands = await prisma.brand.findMany({
-      include: {
-        user: true,
-        products: true
+      if (category !== undefined) {
+        data.category =
+          String(category).trim()
       }
-    })
-    res.json(brands)
-  } catch (error) {
-    res.status(500).json({ error: 'Internal server error' })
-  }
-})
 
-// Approve/Reject brand (Admin)
-app.patch('/api/brands/:brandId/status', authenticate, async (req: any, res) => {
-  try {
-    if (req.user.role !== 'ADMIN') {
-      return res.status(403).json({ error: 'Forbidden' })
+      const updatedProduct =
+        await prisma.product.update({
+          where: {
+            id: product.id,
+          },
+          data,
+        })
+
+      res.json(updatedProduct)
+    } catch (error) {
+      console.error(error)
+
+      res.status(500).json({
+        error: 'Internal server error',
+      })
     }
-
-    const { status } = req.body
-    const brand = await prisma.brand.update({
-      where: { id: req.params.brandId },
-      data: { status }
-    })
-    res.json(brand)
-  } catch (error) {
-    res.status(500).json({ error: 'Internal server error' })
   }
-})
+)
+
+app.delete(
+  '/api/products/:productId',
+  authenticate,
+  requireRole('BRAND'),
+  async (req: any, res) => {
+    try {
+      const brand =
+        await prisma.brand.findUnique({
+          where: {
+            userId: req.user.userId,
+          },
+        })
+
+      if (!brand) {
+        return res.status(404).json({
+          error: 'Brand not found',
+        })
+      }
+
+      const product =
+        await prisma.product.findFirst({
+          where: {
+            id: req.params.productId,
+            brandId: brand.id,
+          },
+        })
+
+      if (!product) {
+        return res.status(404).json({
+          error: 'Product not found',
+        })
+      }
+
+      await prisma.product.delete({
+        where: {
+          id: product.id,
+        },
+      })
+
+      res.json({
+        message: 'Product deleted successfully',
+      })
+    } catch (error) {
+      console.error(error)
+
+      res.status(500).json({
+        error: 'Internal server error',
+      })
+    }
+  }
+)
+
+/* =========================
+   BRAND DASHBOARD
+========================= */
+
+app.get(
+  '/api/brand/me',
+  authenticate,
+  requireRole('BRAND'),
+  async (req: any, res) => {
+    try {
+      const brand =
+        await prisma.brand.findUnique({
+          where: {
+            userId: req.user.userId,
+          },
+
+          include: {
+            products: {
+              orderBy: {
+                createdAt: 'desc',
+              },
+            },
+          },
+        })
+
+      if (!brand) {
+        return res.status(404).json({
+          error: 'Brand not found',
+        })
+      }
+
+      res.json(brand)
+    } catch (error) {
+      console.error(error)
+
+      res.status(500).json({
+        error: 'Internal server error',
+      })
+    }
+  }
+)
+
+/* =========================
+   ADMIN
+========================= */
+
+app.get(
+  '/api/brands',
+  authenticate,
+  requireRole('ADMIN'),
+  async (_req, res) => {
+    try {
+      const brands =
+        await prisma.brand.findMany({
+          include: {
+            user: {
+              select: {
+                id: true,
+                email: true,
+                name: true,
+                role: true,
+              },
+            },
+
+            products: true,
+          },
+
+          orderBy: {
+            createdAt: 'desc',
+          },
+        })
+
+      res.json(brands)
+    } catch (error) {
+      console.error(error)
+
+      res.status(500).json({
+        error: 'Internal server error',
+      })
+    }
+  }
+)
+
+app.patch(
+  '/api/brands/:brandId/status',
+  authenticate,
+  requireRole('ADMIN'),
+  async (req, res) => {
+    try {
+      const {
+        status,
+      } = req.body
+
+      const allowedStatuses = [
+        'pending',
+        'approved',
+        'rejected',
+      ]
+
+      if (
+        !allowedStatuses.includes(status)
+      ) {
+        return res.status(400).json({
+          error: 'Invalid status',
+        })
+      }
+
+      const brand =
+        await prisma.brand.update({
+          where: {
+            id: req.params.brandId,
+          },
+
+          data: {
+            status,
+          },
+        })
+
+      res.json(brand)
+    } catch (error) {
+      console.error(error)
+
+      res.status(500).json({
+        error: 'Internal server error',
+      })
+    }
+  }
+)
 
 app.listen(PORT, () => {
-  console.log(`Server running on port ${PORT}`)
+  console.log(
+    `Server running on port ${PORT}`
+  )
 })

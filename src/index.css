@@ -15,9 +15,9 @@
   --accent-foreground: 222.2 47.4% 11.2%;
   --destructive: 0 84.2% 60.2%;
   --destructive-foreground: 210 40% 98%;
-  --border: 27 91% 57%;
-  --input: 27 91% 57%;
-  --ring: 27 91% 57%;
+  --border: 214.3 31.8% 91.4%;
+  --input: 214.3 31.8% 91.4%;
+  --ring: 222.2 47.4% 11.2%;
   --radius: 0.5rem;
 }
 
@@ -36,31 +36,9 @@
   --accent-foreground: 210 40% 98%;
   --destructive: 0 62.8% 30.6%;
   --destructive-foreground: 210 40% 98%;
-  --border: 27 91% 57%;
-  --input: 27 91% 57%;
-  --ring: 27 91% 57%;
-}
-
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: 222.2 84% 4.9%;
-    --foreground: 210 40% 98%;
-    --card: 222.2 84% 4.9%;
-    --card-foreground: 210 40% 98%;
-    --primary: 346.8 77.2% 49.8%;
-    --primary-foreground: 355.7 100% 97.3%;
-    --secondary: 217.2 32.6% 17.5%;
-    --secondary-foreground: 210 40% 98%;
-    --muted: 217.2 32.6% 17.5%;
-    --muted-foreground: 215 20.2% 65.1%;
-    --accent: 217.2 32.6% 17.5%;
-    --accent-foreground: 210 40% 98%;
-    --destructive: 0 62.8% 30.6%;
-    --destructive-foreground: 210 40% 98%;
-    --border: 27 91% 57%;
-    --input: 27 91% 57%;
-    --ring: 27 91% 57%;
-  }
+  --border: 217.2 32.6% 17.5%;
+  --input: 217.2 32.6% 17.5%;
+  --ring: 212.7 26.8% 83.9%;
 }
 
 * {
@@ -70,6 +48,115 @@
 body {
   background-color: hsl(var(--background));
   color: hsl(var(--foreground));
+  transition: background-color 0.3s, color 0.3s;
+}
+
+.card {
+  background-color: hsl(var(--card));
+  color: hsl(var(--card-foreground));
+  border-color: hsl(var(--border));
+}
+
+.card-header {
+  background-color: transparent;
+  border-color: hsl(var(--border));
+}
+
+.bg-light {
+  background-color: hsl(var(--muted)) !important;
+}
+
+.bg-white {
+  background-color: hsl(var(--card)) !important;
+}
+
+.text-secondary {
+  color: hsl(var(--muted-foreground)) !important;
+}
+
+.text-muted {
+  color: hsl(var(--muted-foreground)) !important;
+}
+
+.text-primary {
+  color: hsl(var(--primary)) !important;
+}
+
+.text-danger {
+  color: hsl(var(--destructive)) !important;
+}
+
+.text-success {
+  color: #22c55e !important;
+}
+
+.text-warning {
+  color: #f59e0b !important;
+}
+
+.border-bottom {
+  border-color: hsl(var(--border)) !important;
+}
+
+.border-top {
+  border-color: hsl(var(--border)) !important;
+}
+
+.border {
+  border-color: hsl(var(--border)) !important;
+}
+
+.form-control {
+  background-color: hsl(var(--background));
+  color: hsl(var(--foreground));
+  border-color: hsl(var(--border));
+}
+
+.form-control:focus {
+  background-color: hsl(var(--background));
+  color: hsl(var(--foreground));
+  border-color: hsl(var(--ring));
+}
+
+.form-select {
+  background-color: hsl(var(--background));
+  color: hsl(var(--foreground));
+  border-color: hsl(var(--border));
+}
+
+.btn-primary {
+  background-color: hsl(var(--primary));
+  border-color: hsl(var(--primary));
+  color: hsl(var(--primary-foreground));
+}
+
+.btn-outline-primary {
+  color: hsl(var(--primary));
+  border-color: hsl(var(--primary));
+}
+
+.btn-outline-primary:hover {
+  background-color: hsl(var(--primary));
+  color: hsl(var(--primary-foreground));
+}
+
+.btn-secondary {
+  background-color: hsl(var(--secondary));
+  border-color: hsl(var(--secondary));
+  color: hsl(var(--secondary-foreground));
+}
+
+.btn-link {
+  color: hsl(var(--foreground));
+}
+
+.btn-link:hover {
+  color: hsl(var(--primary));
+}
+
+.badge {
+  background-color: hsl(var(--primary));
+  color: hsl(var(--primary-foreground));
 }
 
 @media (max-width: 640px) {

@@ -4,7 +4,13 @@ import { useAuth } from '../../context/AuthContext'
 import { Button } from '../../components/ui/button'
 import { Input } from '../../components/ui/input'
 import { Label } from '../../components/ui/label'
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../../components/ui/card'
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from '../../components/ui/card'
 import Navbar from '../../components/Navbar'
 
 export default function SignIn() {
@@ -12,20 +18,25 @@ export default function SignIn() {
   const [password, setPassword] = useState('')
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
+
   const { signIn } = useAuth()
   const navigate = useNavigate()
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
+
     setError('')
     setLoading(true)
 
     try {
-      await signIn(email, password)
-      if (email === 'admin@marketplace.com') {
-        navigate('/admin')
+      const user = await signIn(email.trim(), password)
+
+      if (user.role === 'ADMIN') {
+        navigate('/admin/dashboard', { replace: true })
+      } else if (user.role === 'BRAND') {
+        navigate('/brand/dashboard', { replace: true })
       } else {
-        navigate('/shop')
+        navigate('/shop', { replace: true })
       }
     } catch (err: any) {
       setError(err.message || 'Failed to sign in')
@@ -35,55 +46,79 @@ export default function SignIn() {
   }
 
   return (
-    <div className="min-vh-100 bg-light p-4">
+    <div className="min-vh-100 bg-light">
       <Navbar />
-      <div className="d-flex align-items-center justify-content-center" style={{ minHeight: 'calc(100vh - 80px)' }}>
-        <Card className="w-100" style={{ maxWidth: '400px' }}>
-        <CardHeader>
-          <CardTitle>Sign In</CardTitle>
-          <CardDescription>Enter your credentials to access your account</CardDescription>
-        </CardHeader>
-        <CardContent>
-          <form onSubmit={handleSubmit}>
-            <div className="mb-3">
-              <Label htmlFor="email">Email</Label>
-              <Input
-                id="email"
-                type="email"
-                placeholder="your@email.com"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                required
-              />
+
+      <div
+        className="d-flex align-items-center justify-content-center p-4"
+        style={{ minHeight: 'calc(100vh - 70px)' }}
+      >
+        <Card className="w-100" style={{ maxWidth: '420px' }}>
+          <CardHeader>
+            <CardTitle>Welcome back</CardTitle>
+            <CardDescription>
+              Sign in to your VAA account
+            </CardDescription>
+          </CardHeader>
+
+          <CardContent>
+            <form onSubmit={handleSubmit}>
+              <div className="mb-3">
+                <Label htmlFor="email">Email</Label>
+
+                <Input
+                  id="email"
+                  type="email"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  placeholder="you@example.com"
+                  required
+                />
+              </div>
+
+              <div className="mb-3">
+                <Label htmlFor="password">Password</Label>
+
+                <Input
+                  id="password"
+                  type="password"
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  placeholder="••••••••"
+                  required
+                />
+              </div>
+
+              {error && (
+                <div className="alert alert-danger py-2">
+                  {error}
+                </div>
+              )}
+
+              <Button
+                type="submit"
+                className="w-100"
+                disabled={loading}
+              >
+                {loading ? 'Signing in...' : 'Sign In'}
+              </Button>
+            </form>
+
+            <div className="text-center mt-4 small">
+              Don't have an account?{' '}
+              <Link to="/auth/signup">
+                Create one
+              </Link>
             </div>
-            <div className="mb-3">
-              <Label htmlFor="password">Password</Label>
-              <Input
-                id="password"
-                type="password"
-                placeholder="••••••••"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                required
-              />
+
+            <div className="text-center mt-2 small">
+              Want to sell on VAA?{' '}
+              <Link to="/auth/brand-signup">
+                Register your brand
+              </Link>
             </div>
-            {error && <p className="text-danger small">{error}</p>}
-            <Button type="submit" className="w-100" disabled={loading}>
-              {loading ? 'Signing in...' : 'Sign In'}
-            </Button>
-          </form>
-          <div className="mt-4 text-center small">
-            <Link to="/auth/signup" className="text-primary text-decoration-none">
-              Don't have an account? Sign up
-            </Link>
-          </div>
-          <div className="mt-2 text-center small">
-            <Link to="/auth/brand-signup" className="text-primary text-decoration-none">
-              Are you a brand? Register here
-            </Link>
-          </div>
-        </CardContent>
-      </Card>
+          </CardContent>
+        </Card>
       </div>
     </div>
   )
