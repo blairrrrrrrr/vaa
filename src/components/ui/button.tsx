@@ -1,18 +1,17 @@
 import * as React from "react"
 import { Slot } from "@radix-ui/react-slot"
 
-export interface ButtonProps
-  extends React.ButtonHTMLAttributes<HTMLButtonElement> {
-  asChild?: boolean
+export interface ButtonProps extends React.ButtonHTMLAttributes<HTMLButtonElement> {
   variant?: "default" | "destructive" | "outline" | "secondary" | "ghost" | "link"
   size?: "default" | "sm" | "lg" | "icon"
+  asChild?: boolean
 }
 
 const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(
   ({ className, variant = "default", size = "default", asChild = false, ...props }, ref) => {
     const Comp = asChild ? Slot : "button"
     
-    const variantClasses = {
+    const variantClasses: Record<string, string> = {
       default: "btn btn-primary",
       destructive: "btn btn-danger",
       outline: "btn btn-outline-primary",
@@ -21,7 +20,7 @@ const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(
       link: "btn btn-link",
     }
     
-    const sizeClasses = {
+    const sizeClasses: Record<string, string> = {
       default: "",
       sm: "btn-sm",
       lg: "btn-lg",
@@ -32,7 +31,7 @@ const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(
     
     return (
       <Comp
-        className={`${variantClasses[variant]} ${sizeClasses[size]} ${className || ""}`}
+        className={`${variantClasses[variant] || variantClasses.default} ${sizeClasses[size] || sizeClasses.default} ${className || ""}`}
         style={iconStyle}
         ref={ref}
         {...props}

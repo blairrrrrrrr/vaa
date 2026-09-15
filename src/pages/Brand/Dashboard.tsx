@@ -6,36 +6,70 @@ import { Label } from '../../components/ui/label'
 import Navbar from '../../components/Navbar'
 import { Plus, TrendingUp, DollarSign, Eye, Edit, Trash2, BarChart3, ShoppingCart, ArrowUpRight, ArrowDownRight } from 'lucide-react'
 
-const API_URL = 'http://localhost:3001'
+const API_URL =
+  import.meta.env.VITE_API_URL ||
+  'http://localhost:3001'
 
 export default function BrandDashboard() {
   const [showAddProduct, setShowAddProduct] = useState(false)
+  const [editingProduct, setEditingProduct] = useState<any>(null)
   const [products, setProducts] = useState<any[]>([])
   const [brand, setBrand] = useState<any>(null)
   const [loading, setLoading] = useState(true)
+
+
+  const loadBrand = async () => {
+    const token = localStorage.getItem('token')
+
+    const response = await fetch(
+      `${API_URL}/api/brand/me`,
+      {
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      }
+    )
+
+    const data = await response.json()
+
+    if (!response.ok) {
+      throw new Error(
+        data.error || 'Failed to load brand'
+      )
+    }
+
+    setBrand(data)
+    return data
+  }
+
+  const loadProducts = async (brandId: string) => {
+    const token = localStorage.getItem('token')
+    const response = await fetch(`${API_URL}/api/products/brand/${brandId}`, {
+      headers: {
+        Authorization: `Bearer ${token}`
+      }
+    })
+    const data = await response.json()
+    if (!response.ok) {
+      console.error('Failed to load products:', data)
+      setProducts([])
+      return
+    }
+    setProducts(data)
+  }
 
   useEffect(() => {
     const brandData = localStorage.getItem('brand')
     if (brandData) {
       setBrand(JSON.parse(brandData))
-    }
-
-    const token = localStorage.getItem('token')
-    if (brandData) {
       const parsedBrand = JSON.parse(brandData)
-      fetch(`${API_URL}/api/products/brand/${parsedBrand.id}`, {
-        headers: {
-          Authorization: `Bearer ${token}`
-        }
-      })
-        .then(res => res.json())
-        .then(data => {
-          setProducts(data)
-          setLoading(false)
-        })
-        .catch(() => setLoading(false))
+      loadProducts(parsedBrand.id)
+        .finally(() => setLoading(false))
     } else {
-      setLoading(false)
+      loadBrand()
+        .then((data) => loadProducts(data.id))
+        .catch(() => setLoading(false))
+        .finally(() => setLoading(false))
     }
   }, [])
 
@@ -52,33 +86,143 @@ export default function BrandDashboard() {
     e.preventDefault()
     const form = e.target as HTMLFormElement
     const formData = new FormData(form)
-    
+
+    const name = formData.get('name')
+    const description = formData.get('description')
+    const price = formData.get('price')
+    const stock = formData.get('stock')
+    const imageUrl = formData.get('imageUrl')
+    const category = formData.get('category')
+
     const token = localStorage.getItem('token')
-    const res = await fetch(`${API_URL}/api/products`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        Authorization: `Bearer ${token}`
-      },
-      body: JSON.stringify({
-        name: formData.get('name'),
-        description: formData.get('description'),
-        price: parseFloat(formData.get('price') as string),
-        stock: parseInt(formData.get('stock') as string),
-        category: formData.get('category'),
-        imageUrl: formData.get('imageUrl')
-      })
-    })
-    if (res.ok) {
+    const response = await fetch(
+      `${API_URL}/api/products`,
+      {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({
+          name,
+          description,
+          price: Number(price),
+          stock: Number(stock),
+          imageUrl,
+          category,
+        }),
+      }
+    )
+    if (response.ok) {
       setShowAddProduct(false)
       // Refresh products
       if (brand) {
-        const productsRes = await fetch(`${API_URL}/api/products/brand/${brand.id}`, {
-          headers: { Authorization: `Bearer ${token}` }
-        })
-        const data = await productsRes.json()
-        setProducts(data)
+        loadProducts(brand.id)
       }
+    }
+  }
+
+  const updateProduct = async (
+    productId: string,
+    productData: {
+      name: string
+      description: string
+      price: number
+      stock: number
+      imageUrl?: string
+      category: string
+    }
+  ) => {
+    const token = localStorage.getItem('token')
+
+    const response = await fetch(
+      `${API_URL}/api/products/${productId}`,
+      {
+        method: 'PATCH',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify(productData),
+      }
+    )
+
+    const data = await response.json()
+
+    if (!response.ok) {
+      throw new Error(
+        data.error || 'Failed to update product'
+      )
+    }
+
+    return data
+  }
+
+  const deleteProduct = async (
+    productId: string
+  ) => {
+    const token = localStorage.getItem('token')
+
+    const response = await fetch(
+      `${API_URL}/api/products/${productId}`,
+      {
+        method: 'DELETE',
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      }
+    )
+
+    const data = await response.json()
+
+    if (!response.ok) {
+      throw new Error(
+        data.error || 'Failed to delete product'
+      )
+    }
+
+    return data
+  }
+
+  const handleDeleteProduct = async (productId: string) => {
+    try {
+      await deleteProduct(productId)
+      if (brand) {
+        loadProducts(brand.id)
+      }
+    } catch (error) {
+      console.error('Failed to delete product:', error)
+    }
+  }
+
+  const handleEditProduct = (product: any) => {
+    setEditingProduct(product)
+  }
+
+  const handleUpdateProduct = async (e: React.FormEvent) => {
+    e.preventDefault()
+    if (!editingProduct) return
+
+    const form = e.target as HTMLFormElement
+    const formData = new FormData(form)
+
+    const productData = {
+      name: formData.get('name') as string,
+      description: formData.get('description') as string,
+      price: Number(formData.get('price')),
+      stock: Number(formData.get('stock')),
+      category: formData.get('category') as string,
+      imageUrl: formData.get('imageUrl') as string,
+    }
+
+    try {
+      await updateProduct(editingProduct.id, productData)
+      setEditingProduct(null)
+      if (brand) {
+        loadProducts(brand.id)
+      }
+    } catch (error) {
+      console.error('Failed to update product:', error)
     }
   }
 
@@ -225,13 +369,58 @@ export default function BrandDashboard() {
               </Card>
             )}
 
+            {editingProduct && (
+              <Card className="mb-4 border-2">
+                <CardHeader>
+                  <CardTitle>Edit Product</CardTitle>
+                  <CardDescription>Update product details</CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <form onSubmit={handleUpdateProduct}>
+                    <div className="row g-3">
+                      <div className="col-md-6">
+                        <Label htmlFor="edit-name">Product Name</Label>
+                        <Input id="edit-name" name="name" defaultValue={editingProduct.name} required />
+                      </div>
+                      <div className="col-md-6">
+                        <Label htmlFor="edit-price">Price</Label>
+                        <Input id="edit-price" name="price" type="number" defaultValue={editingProduct.price} required />
+                      </div>
+                      <div className="col-12">
+                        <Label htmlFor="edit-description">Description</Label>
+                        <Input id="edit-description" name="description" defaultValue={editingProduct.description} required />
+                      </div>
+                      <div className="col-md-6">
+                        <Label htmlFor="edit-category">Category</Label>
+                        <Input id="edit-category" name="category" defaultValue={editingProduct.category} required />
+                      </div>
+                      <div className="col-md-6">
+                        <Label htmlFor="edit-stock">Stock</Label>
+                        <Input id="edit-stock" name="stock" type="number" defaultValue={editingProduct.stock} required />
+                      </div>
+                      <div className="col-12">
+                        <Label htmlFor="edit-imageUrl">Image URL</Label>
+                        <Input id="edit-imageUrl" name="imageUrl" defaultValue={editingProduct.imageUrl || editingProduct.image} required />
+                      </div>
+                      <div className="col-12 d-flex gap-2">
+                        <Button type="submit" style={{ background: 'linear-gradient(to right, #6f42c1, #d63384)', border: 'none', color: 'white' }}>Update Product</Button>
+                        <Button type="button" variant="outline" onClick={() => setEditingProduct(null)}>
+                          Cancel
+                        </Button>
+                      </div>
+                    </div>
+                  </form>
+                </CardContent>
+              </Card>
+            )}
+
             <div className="d-flex flex-column gap-3">
               {products.map(product => (
                 <Card key={product.id} className="overflow-hidden">
                   <CardContent className="p-0">
                     <div className="d-flex">
                       <img
-                        src={product.image}
+                        src={product.imageUrl || product.image}
                         alt={product.name}
                         className="object-cover"
                         style={{ width: '128px', height: '128px' }}
@@ -243,10 +432,10 @@ export default function BrandDashboard() {
                             <p className="small text-secondary">${product.price}</p>
                           </div>
                           <div className="d-flex gap-2">
-                            <Button variant="ghost" size="icon" style={{ width: '32px', height: '32px' }}>
+                            <Button variant="ghost" size="icon" style={{ width: '32px', height: '32px' }} onClick={() => handleEditProduct(product)}>
                               <Edit style={{ width: '16px', height: '16px' }} />
                             </Button>
-                            <Button variant="ghost" size="icon" className="text-danger" style={{ width: '32px', height: '32px' }}>
+                            <Button variant="ghost" size="icon" className="text-danger" style={{ width: '32px', height: '32px' }} onClick={() => handleDeleteProduct(product.id)}>
                               <Trash2 style={{ width: '16px', height: '16px' }} />
                             </Button>
                           </div>
@@ -258,15 +447,15 @@ export default function BrandDashboard() {
                           </div>
                           <div className="col-3">
                             <p className="text-secondary">Sales</p>
-                            <p className="fw-semibold">{product.sales}</p>
+                            <p className="fw-semibold">{product.sales || 0}</p>
                           </div>
                           <div className="col-3">
                             <p className="text-secondary">Views</p>
-                            <p className="fw-semibold">{product.views}</p>
+                            <p className="fw-semibold">{product.views || 0}</p>
                           </div>
                           <div className="col-3">
                             <p className="text-secondary">Revenue</p>
-                            <p className="fw-semibold text-success">${product.revenue.toLocaleString()}</p>
+                            <p className="fw-semibold text-success">${(product.revenue || 0).toLocaleString()}</p>
                           </div>
                         </div>
                       </div>
@@ -345,11 +534,10 @@ export default function BrandDashboard() {
                 <div className="d-flex flex-column gap-2">
                   {products.slice(0, 3).map((product, index) => (
                     <div key={product.id} className="d-flex align-items-center gap-2">
-                      <span className={`rounded-circle d-flex align-items-center justify-content-center small fw-bold ${
-                        index === 0 ? 'bg-warning text-warning-emphasis' :
+                      <span className={`rounded-circle d-flex align-items-center justify-content-center small fw-bold ${index === 0 ? 'bg-warning text-warning-emphasis' :
                         index === 1 ? 'bg-secondary text-white' :
-                        'bg-orange-100 text-orange-700'
-                      }`} style={{ width: '24px', height: '24px' }}>
+                          'bg-orange-100 text-orange-700'
+                        }`} style={{ width: '24px', height: '24px' }}>
                         {index + 1}
                       </span>
                       <div className="flex-1">

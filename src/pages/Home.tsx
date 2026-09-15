@@ -33,22 +33,18 @@ export default function Home() {
       <section className="position-relative overflow-hidden" style={{ background: 'linear-gradient(to bottom right, #fdf2f8, #faf5ff, #eff6ff)' }}>
         <div className="container py-5 py-md-32 position-relative">
           <div className="mx-auto text-center" style={{ maxWidth: '900px' }}>
-            <div className="d-inline-flex align-items-center gap-2 bg-white px-4 py-2 rounded-pill shadow-sm mb-4">
-              <Zap style={{ width: '16px', height: '16px', color: '#eab308' }} />
-              <span className="small fw-medium">New: Summer Collection 2024</span>
-            </div>
-            <h1 className="display-3 display-md-1 fw-bold mb-4">
+            <h1 className="display-3 display-md-1 fw-bold mb-4 text-black">
               Discover Fashion
-              <span className="d-block" style={{ background: 'linear-gradient(to right, #db2777, #9333ea)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent', backgroundClip: 'text' }}>
+              <span className="d-block" style={{ background: 'linear-gradient(to right, #db8727, #ef6f0f)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent', backgroundClip: 'text' }}>
                 That Defines You
               </span>
             </h1>
             <p className="fs-5 text-secondary mb-5 mx-auto" style={{ maxWidth: '600px' }}>
-              Shop from curated independent brands worldwide. From luxury to streetwear, find your perfect style.
+              Shop from curated independent brands countrywide. From luxury to streetwear, find your perfect style.
             </p>
             <div className="d-flex flex-column flex-sm-row gap-3 justify-content-center">
               <Link to="/shop">
-                <Button size="lg" className="gap-2" style={{ background: 'linear-gradient(to right, #db2777, #9333ea)', border: 'none', color: 'white', padding: '1rem 2rem' }}>
+                <Button size="lg" className="gap-2" style={{ background: 'linear-gradient(to right, #db8727, #ef6f0f)', border: 'none', color: 'white', padding: '1rem 2rem' }}>
                   <ShoppingBag style={{ width: '20px', height: '20px' }} />
                   Start Shopping
                   <ArrowRight style={{ width: '20px', height: '20px' }} />
@@ -71,7 +67,7 @@ export default function Home() {
           <div className="row row-cols-2 row-cols-md-4 g-4">
             {stats.map((stat, index) => (
               <div key={index} className="col text-center">
-                <stat.icon className="mx-auto mb-3" style={{ width: '32px', height: '32px', color: '#9333ea' }} />
+                <stat.icon className="mx-auto mb-3" style={{ width: '32px', height: '32px', color: '#ef6f0f' }} />
                 <div className="fs-3 fw-bold mb-1">{stat.value}</div>
                 <div className="small text-secondary">{stat.label}</div>
               </div>
@@ -134,7 +130,7 @@ export default function Home() {
               <Card className="border-2">
                 <CardHeader>
                   <div className="rounded-3 d-flex align-items-center justify-content-center mb-3" style={{ width: '56px', height: '56px', background: '#fce7f3' }}>
-                    <ShoppingBag style={{ width: '28px', height: '28px', color: '#db2777' }} />
+                    <ShoppingBag style={{ width: '28px', height: '28px', color: '#ef6f0f' }} />
                   </div>
                   <CardTitle className="fs-4">For Customers</CardTitle>
                   <CardDescription className="text-base">
@@ -156,7 +152,7 @@ export default function Home() {
               <Card className="border-2">
                 <CardHeader>
                   <div className="rounded-3 d-flex align-items-center justify-content-center mb-3" style={{ width: '56px', height: '56px', background: '#f3e8ff' }}>
-                    <Store style={{ width: '28px', height: '28px', color: '#9333ea' }} />
+                    <Store style={{ width: '28px', height: '28px', color: '#db8727' }} />
                   </div>
                   <CardTitle className="fs-4">For Brands</CardTitle>
                   <CardDescription className="text-base">
@@ -178,7 +174,7 @@ export default function Home() {
               <Card className="border-2">
                 <CardHeader>
                   <div className="rounded-3 d-flex align-items-center justify-content-center mb-3" style={{ width: '56px', height: '56px', background: '#dbeafe' }}>
-                    <Shield style={{ width: '28px', height: '28px', color: '#2563eb' }} />
+                    <Shield style={{ width: '28px', height: '28px', color: '#db8727' }} />
                   </div>
                   <CardTitle className="fs-4">Admin Panel</CardTitle>
                   <CardDescription className="text-base">
