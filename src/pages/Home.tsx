@@ -3,27 +3,65 @@ import { Button } from '../components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../components/ui/card'
 import Navbar from '../components/Navbar'
 import { ShoppingBag, Store, Shield, Star, TrendingUp, Users, Zap, ArrowRight } from 'lucide-react'
+import { useState, useEffect } from 'react'
 
 export default function Home() {
-  const featuredBrands = [
-    { name: 'Elegant Style', category: 'Luxury', image: 'https://images.unsplash.com/photo-1441986300917-64674bd600d8?w=300' },
-    { name: 'Urban Fashion', category: 'Streetwear', image: 'https://images.unsplash.com/photo-1483985988355-763728e1935b?w=300' },
-    { name: 'Minimalist Co', category: 'Minimal', image: 'https://images.unsplash.com/photo-1490481651871-ab68de25d43d?w=300' },
-    { name: 'Vintage Vibes', category: 'Vintage', image: 'https://images.unsplash.com/photo-1469334031218-e382a71b716b?w=300' }
-  ]
+  const [brands, setBrands] = useState<any[]>([])
+  const [products, setProducts] = useState<any[]>([])
+  const [loading, setLoading] = useState(true)
 
-  const testimonials = [
-    { name: 'Sarah M.', role: 'Fashion Blogger', content: 'The best place to discover unique brands. I found my favorite dress here!', rating: 5 },
-    { name: 'James K.', role: 'Brand Owner', content: 'Selling on this platform transformed my business. The tools are incredible.', rating: 5 },
-    { name: 'Emily R.', role: 'Customer', content: 'Amazing selection and fast shipping. My go-to for fashion now.', rating: 5 }
-  ]
+  useEffect(() => {
+    const API_URL = 'http://localhost:3001'
+    Promise.all([
+      fetch(`${API_URL}/api/brands/public`),
+      fetch(`${API_URL}/api/products`)
+    ])
+      .then(async ([brandsRes, productsRes]) => {
+        if (!brandsRes.ok || !productsRes.ok) {
+          throw new Error('Failed to fetch data')
+        }
+        const brandsData = await brandsRes.json()
+        const productsData = await productsRes.json()
+        setBrands(Array.isArray(brandsData) ? brandsData : [])
+        setProducts(Array.isArray(productsData) ? productsData : [])
+        setLoading(false)
+      })
+      .catch((error) => {
+        console.error('Error fetching data:', error)
+        setBrands([])
+        setProducts([])
+        setLoading(false)
+      })
+  }, [])
 
-  const stats = [
-    { label: 'Active Brands', value: '500+', icon: Store },
-    { label: 'Products Listed', value: '10K+', icon: ShoppingBag },
-    { label: 'Happy Customers', value: '50K+', icon: Users },
-    { label: 'Orders Daily', value: '1K+', icon: TrendingUp }
-  ]
+  const featuredBrands = brands.slice(0, 4).map((brand: any) => ({
+    name: brand.name,
+    category: brand.category || 'Fashion',
+    image: brand.imageUrl || brand.image || 'https://images.unsplash.com/photo-1441986300917-64674bd600d8?w=300'
+  }))
+
+  // const testimonials = [
+  //   { name: 'Sarah M.', role: 'Fashion Blogger', content: 'The best place to discover unique brands. I found my favorite dress here!', rating: 5 },
+  //   { name: 'James K.', role: 'Brand Owner', content: 'Selling on this platform transformed my business. The tools are incredible.', rating: 5 },
+  //   { name: 'Emily R.', role: 'Customer', content: 'Amazing selection and fast shipping. My go-to for fashion now.', rating: 5 }
+  // ]
+
+  // const stats = [
+  //   { label: 'Active Brands', value: `${brands.length}+`, icon: Store },
+  //   { label: 'Products Listed', value: `${products.length}+`, icon: ShoppingBag },
+  //   { label: 'Happy Customers', value: '50K+', icon: Users },
+  //   { label: 'Orders Daily', value: '1K+', icon: TrendingUp }
+  // ]
+
+  if (loading) {
+    return (
+      <div className="min-vh-100 bg-white d-flex align-items-center justify-content-center">
+        <div className="spinner-border" role="status">
+          <span className="visually-hidden">Loading...</span>
+        </div>
+      </div>
+    )
+  }
 
   return (
     <div className="min-vh-100 bg-white">
@@ -34,13 +72,13 @@ export default function Home() {
         <div className="container py-5 py-md-32 position-relative">
           <div className="mx-auto text-center" style={{ maxWidth: '900px' }}>
             <h1 className="display-3 display-md-1 fw-bold mb-4 text-black">
-              Discover Fashion
+              Discover an aesthetic
               <span className="d-block" style={{ background: 'linear-gradient(to right, #db8727, #ef6f0f)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent', backgroundClip: 'text' }}>
-                That Defines You
+                That defines you
               </span>
             </h1>
             <p className="fs-5 text-secondary mb-5 mx-auto" style={{ maxWidth: '600px' }}>
-              Shop from curated independent brands countrywide. From luxury to streetwear, find your perfect style.
+              Shop from the best independent brands countrywide.
             </p>
             <div className="d-flex flex-column flex-sm-row gap-3 justify-content-center">
               <Link to="/shop">
@@ -62,7 +100,7 @@ export default function Home() {
       </section>
 
       {/* Stats Section */}
-      <section className="py-5 bg-white border-top border-bottom">
+      {/* <section className="py-5 bg-white border-top border-bottom">
         <div className="container">
           <div className="row row-cols-2 row-cols-md-4 g-4">
             {stats.map((stat, index) => (
@@ -74,7 +112,7 @@ export default function Home() {
             ))}
           </div>
         </div>
-      </section>
+      </section> */}
 
       {/* Featured Brands */}
       <section className="py-5 bg-light">
@@ -82,7 +120,7 @@ export default function Home() {
           <div className="text-center mb-4">
             <h2 className="h2 fw-bold mb-3">Featured Brands</h2>
             <p className="text-secondary mx-auto" style={{ maxWidth: '600px' }}>
-              Discover trending fashion brands from around the world
+              Discover fashion brands all around Kenya
             </p>
           </div>
           <div className="row row-cols-2 row-cols-md-4 g-4">
@@ -120,12 +158,12 @@ export default function Home() {
       <section className="py-5 bg-white">
         <div className="container">
           <div className="text-center mb-4">
-            <h2 className="h2 fw-bold mb-3">Why Choose FashionHub?</h2>
+            <h2 className="h2 fw-bold mb-3">Why Choose Vaa?</h2>
             <p className="text-secondary mx-auto" style={{ maxWidth: '600px' }}>
-              Everything you need to shop or sell fashion
+              It's not only a shopping platform but connects you to your favorite brands and communities
             </p>
           </div>
-          <div className="row row-cols-md-3 g-4">
+          <div className="row row-cols-md- g-4">
             <div className="col">
               <Card className="border-2">
                 <CardHeader>
@@ -170,7 +208,7 @@ export default function Home() {
               </Card>
             </div>
 
-            <div className="col">
+            {/* <div className="col">
               <Card className="border-2">
                 <CardHeader>
                   <div className="rounded-3 d-flex align-items-center justify-content-center mb-3" style={{ width: '56px', height: '56px', background: '#dbeafe' }}>
@@ -190,13 +228,13 @@ export default function Home() {
                   </Link>
                 </CardContent>
               </Card>
-            </div>
+            </div> */}
           </div>
         </div>
       </section>
 
       {/* Testimonials */}
-      <section className="py-5" style={{ background: 'linear-gradient(to bottom right, #fdf2f8, #faf5ff)' }}>
+      {/* <section className="py-5" style={{ background: 'linear-gradient(to bottom right, #fdf2f8, #faf5ff)' }}>
         <div className="container">
           <div className="text-center mb-4">
             <h2 className="h2 fw-bold mb-3">What People Say</h2>
@@ -223,10 +261,10 @@ export default function Home() {
             ))}
           </div>
         </div>
-      </section>
+      </section> */}
 
       {/* CTA Section */}
-      <section className="py-5 text-white" style={{ background: 'linear-gradient(to right, #db2777, #9333ea)' }}>
+      <section className="py-5 text-white" style={{ background: 'linear-gradient(to right, #db8727, #ef6f0f)' }}>
         <div className="container text-center">
           <h2 className="h2 fw-bold mb-3">Ready to Start?</h2>
           <p className="fs-5 mb-4 mx-auto" style={{ maxWidth: '600px', opacity: 0.9 }}>
@@ -254,10 +292,10 @@ export default function Home() {
         <div className="container">
           <div className="row row-cols-md-4 g-4 mb-4">
             <div className="col">
-              <h3 className="h4 fw-bold mb-3" style={{ background: 'linear-gradient(to right, #f472b6, #a78bfa)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent', backgroundClip: 'text' }}>
-                FashionHub
+              <h3 className="h4 fw-bold mb-3" style={{ background: 'linear-gradient(to right, #db8727, #ef6f0f)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent', backgroundClip: 'text' }}>
+                Vaa
               </h3>
-              <p className="text-secondary">Your destination for unique fashion from independent brands worldwide.</p>
+              <p className="text-secondary">Simplified connection to all fashion brands and communities</p>
             </div>
             <div className="col">
               <h4 className="fw-semibold mb-3">Shop</h4>
@@ -285,7 +323,7 @@ export default function Home() {
             </div>
           </div>
           <div className="border-top border-secondary pt-4 text-center text-secondary">
-            <p>&copy; 2024 FashionHub. All rights reserved.</p>
+            <p>&copy; 2026 FashionHub. All rights reserved.</p>
           </div>
         </div>
       </footer>

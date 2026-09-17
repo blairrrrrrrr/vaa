@@ -786,7 +786,7 @@ export default function BrandDashboard() {
                     />
                   </div>
 
-                  <div className="col-12">
+                  <div className="col-md-6">
                     <Label htmlFor="product-image">
                       Image URL
                     </Label>
@@ -804,6 +804,7 @@ export default function BrandDashboard() {
                       placeholder="https://..."
                     />
                   </div>
+                  
 
                   <div className="col-12 d-flex gap-2">
                     <Button
