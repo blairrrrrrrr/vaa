@@ -18,9 +18,6 @@ if (!JWT_SECRET) {
   )
 }
 
-/* =========================
-   MIDDLEWARE
-========================= */
 
 app.use(
   cors({
@@ -31,9 +28,7 @@ app.use(
 
 app.use(express.json())
 
-/* =========================
-   TYPES
-========================= */
+
 
 type UserRole =
   | 'CUSTOMER'
@@ -45,9 +40,7 @@ interface AuthUser {
   role: UserRole
 }
 
-/* =========================
-   AUTH HELPERS
-========================= */
+
 
 const generateToken = (
   userId: string,
@@ -134,9 +127,7 @@ const requireRole = (
   }
 }
 
-/* =========================
-   HEALTH CHECK
-========================= */
+
 
 app.get('/api/health', (_req, res) => {
   res.json({
@@ -145,13 +136,6 @@ app.get('/api/health', (_req, res) => {
   })
 })
 
-/* =========================
-   AUTH
-========================= */
-
-/*
- * CUSTOMER SIGN UP
- */
 
 app.post(
   '/api/auth/signup',
@@ -607,9 +591,6 @@ app.get(
   }
 )
 
-/* =========================
-   BRAND
-========================= */
 
 /*
  * GET LOGGED-IN BRAND
@@ -685,9 +666,7 @@ app.get(
   }
 )
 
-/* =========================
-   PRODUCTS - PUBLIC
-========================= */
+
 
 /*
  * GET ALL PRODUCTS
@@ -859,9 +838,6 @@ app.get(
   }
 )
 
-/* =========================
-   PRODUCTS - BRAND
-========================= */
 
 /*
  * CREATE PRODUCT
@@ -1270,9 +1246,51 @@ app.delete(
   }
 )
 
-/* =========================
-   ADMIN - BRANDS
-========================= */
+
+/*
+ * GET APPROVED BRANDS (PUBLIC)
+ * For homepage display
+ */
+
+app.get(
+  '/api/brands/public',
+  async (_req, res) => {
+    try {
+      const brands =
+        await prisma.brand.findMany({
+          where: {
+            status: 'approved',
+          },
+
+          select: {
+            id: true,
+            name: true,
+            description: true,
+            category: true,
+            imageUrl: true,
+          },
+
+          orderBy: {
+            createdAt: 'desc',
+          },
+        })
+
+      return res.json(brands)
+    } catch (error) {
+      console.error(
+        'Get public brands error:',
+        error
+      )
+
+      return res.status(500).json({
+        error:
+          'Internal server error',
+      })
+    }
+  }
+)
+
+
 
 /*
  * GET ALL BRANDS

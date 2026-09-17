@@ -72,7 +72,7 @@ export default function Shop() {
       <Navbar />
 
       {/* Hero Section */}
-      <section className="text-white py-4" style={{ background: 'linear-gradient(to right, #db2777, #9333ea)' }}>
+      <section className="text-white py-4" style={{ background: 'linear-gradient(to right, #db8727, #ef6f0f)' }}>
         <div className="container text-center">
           <h1 className="h2 h-md-1 fw-bold mb-3">Shop the Collection</h1>
           <p className="fs-5 mx-auto" style={{ maxWidth: '600px', opacity: 0.9 }}>
@@ -105,7 +105,7 @@ export default function Shop() {
                   variant={selectedCategory === category ? 'default' : 'outline'}
                   size="sm"
                   onClick={() => setSelectedCategory(category)}
-                  style={selectedCategory === category ? { background: 'linear-gradient(to right, #db2777, #9333ea)', border: 'none', color: 'white' } : {}}
+                  style={selectedCategory === category ? { background: 'linear-gradient(to right, #db8727, #ef6f0f)', border: 'none', color: 'white' } : {}}
                 >
                   {category}
                 </Button>
@@ -137,10 +137,10 @@ export default function Shop() {
                 style={{ height: '48px' }}
               >
                 <option value="all">All Prices</option>
-                <option value="under-50">Under $50</option>
-                <option value="50-100">$50 - $100</option>
-                <option value="100-200">$100 - $200</option>
-                <option value="200+">$200+</option>
+                <option value="under-50">Under Ksh 500</option>
+                <option value="50-100">Ksh 500 - Ksh 1000</option>
+                <option value="100-200">Ksh 1000 - Ksh 2000</option>
+                <option value="200+">Ksh 2000+</option>
               </select>
             </div>
           </div>
@@ -186,14 +186,14 @@ export default function Shop() {
                   <p className="small text-primary fw-medium mb-1">{product.brand?.name || 'Unknown Brand'}</p>
                   <h3 className="fw-semibold fs-5 mb-2 text-truncate">{product.name}</h3>
                   <p className="small text-secondary mb-3 text-truncate" style={{ display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>{product.description}</p>
-                  <div className="d-flex align-items-center gap-1 mb-3">
+                  {/* <div className="d-flex align-items-center gap-1 mb-3">
                     {[...Array(5)].map((_, i) => (
                       <Star key={i} style={{ width: '16px', height: '16px', fill: '#facc15', color: '#facc15' }} />
                     ))}
                     <span className="small text-secondary ms-2">(4.5)</span>
-                  </div>
+                  </div> */}
                   <div className="d-flex align-items-center justify-content-between">
-                    <p className="fs-4 fw-bold text-danger">${product.price}</p>
+                    <p className="fs-4 fw-bold text-danger">Ksh {product.price}</p>
                     {product.stock < 10 && (
                       <span className="small text-warning fw-medium">
                         Only {product.stock} left
@@ -204,7 +204,7 @@ export default function Shop() {
                 <div className="p-3 pt-0">
                   <Button 
                     className="w-100 gap-2"
-                    style={{ background: 'linear-gradient(to right, #db2777, #9333ea)', border: 'none', color: 'white' }}
+                    style={{ background: 'linear-gradient(to right, #db8727, #ef6f0f)', border: 'none', color: 'white' }}
                   >
                     <ShoppingCart style={{ width: '16px', height: '16px' }} />
                     Add to Cart
@@ -232,7 +232,7 @@ export default function Shop() {
       </section>
 
       {/* Newsletter Section */}
-      <section className="text-white py-4" style={{ background: 'linear-gradient(to right, #db2777, #9333ea)' }}>
+      <section className="text-white py-4" style={{ background: 'linear-gradient(to right, #db8727, #ef6f0f)' }}>
         <div className="container text-center">
           <h2 className="h3 fw-bold mb-3">Stay Updated</h2>
           <p className="mb-4 mx-auto" style={{ maxWidth: '500px', opacity: 0.9 }}>

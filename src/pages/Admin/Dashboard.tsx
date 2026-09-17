@@ -152,7 +152,7 @@ export default function AdminDashboard() {
                 <DollarSign style={{ width: '16px', height: '16px', color: '#198754' }} />
               </CardHeader>
               <CardContent>
-                <div className="fs-4 fw-bold">${stats.totalRevenue.toLocaleString()}</div>
+                <div className="fs-4 fw-bold">Ksh {stats.totalRevenue.toLocaleString()}</div>
                 <p className="small text-success d-flex align-items-center gap-1 mt-1">
                   <TrendingUp style={{ width: '12px', height: '12px' }} />
                   {stats.monthlyGrowth} from last month
@@ -267,7 +267,7 @@ export default function AdminDashboard() {
                         </div>
                       </div>
                       <div className="text-end">
-                        <p className="fw-semibold">${brand.revenue.toLocaleString()}</p>
+                        <p className="fw-semibold">Ksh {brand.revenue.toLocaleString()}</p>
                         <p className="small text-success">{brand.growth}</p>
                       </div>
                     </div>
