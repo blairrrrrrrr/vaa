@@ -1,557 +1,1196 @@
-import { useState, useEffect } from 'react'
+import { useEffect, useState } from 'react'
+import { useNavigate } from 'react-router-dom'
+import {
+  Plus,
+  Edit,
+  Trash2,
+  Package,
+  Store,
+  CheckCircle,
+  Clock,
+  XCircle,
+  RefreshCw,
+} from 'lucide-react'
+
+import Navbar from '../../components/Navbar'
 import { Button } from '../../components/ui/button'
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../../components/ui/card'
 import { Input } from '../../components/ui/input'
 import { Label } from '../../components/ui/label'
-import Navbar from '../../components/Navbar'
-import { Plus, TrendingUp, DollarSign, Eye, Edit, Trash2, BarChart3, ShoppingCart, ArrowUpRight, ArrowDownRight } from 'lucide-react'
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from '../../components/ui/card'
+import { useAuth } from '../../context/AuthContext'
 
 const API_URL =
-  import.meta.env.VITE_API_URL ||
-  'http://localhost:3001'
+  import.meta.env.VITE_API_URL || 'http://localhost:3001'
+
+interface Product {
+  id: string
+  name: string
+  description: string
+  price: number
+  stock: number
+  imageUrl?: string | null
+  category: string
+  brandId: string
+  createdAt: string
+  updatedAt: string
+}
+
+interface Brand {
+  id: string
+  name: string
+  description?: string | null
+  category?: string | null
+  status: string
+  userId: string
+  createdAt: string
+  updatedAt: string
+  products: Product[]
+}
+
+interface ProductForm {
+  name: string
+  description: string
+  price: string
+  stock: string
+  category: string
+  imageUrl: string
+}
+
+const emptyForm: ProductForm = {
+  name: '',
+  description: '',
+  price: '',
+  stock: '',
+  category: '',
+  imageUrl: '',
+}
 
 export default function BrandDashboard() {
-  const [showAddProduct, setShowAddProduct] = useState(false)
-  const [editingProduct, setEditingProduct] = useState<any>(null)
-  const [products, setProducts] = useState<any[]>([])
-  const [brand, setBrand] = useState<any>(null)
+  const { user, loading: authLoading } = useAuth()
+  const navigate = useNavigate()
+
+  const [brand, setBrand] = useState<Brand | null>(null)
   const [loading, setLoading] = useState(true)
+  const [error, setError] = useState('')
 
+  const [showAddProduct, setShowAddProduct] = useState(false)
+  const [editingProduct, setEditingProduct] =
+    useState<Product | null>(null)
 
-  const loadBrand = async () => {
-    const token = localStorage.getItem('token')
+  const [form, setForm] =
+    useState<ProductForm>(emptyForm)
 
-    const response = await fetch(
-      `${API_URL}/api/brand/me`,
-      {
-        headers: {
-          Authorization: `Bearer ${token}`,
-        },
-      }
-    )
-
-    const data = await response.json()
-
-    if (!response.ok) {
-      throw new Error(
-        data.error || 'Failed to load brand'
-      )
-    }
-
-    setBrand(data)
-    return data
-  }
-
-  const loadProducts = async (brandId: string) => {
-    const token = localStorage.getItem('token')
-    const response = await fetch(`${API_URL}/api/products/brand/${brandId}`, {
-      headers: {
-        Authorization: `Bearer ${token}`
-      }
-    })
-    const data = await response.json()
-    if (!response.ok) {
-      console.error('Failed to load products:', data)
-      setProducts([])
-      return
-    }
-    setProducts(data)
-  }
+  const [submitting, setSubmitting] = useState(false)
 
   useEffect(() => {
-    const brandData = localStorage.getItem('brand')
-    if (brandData) {
-      setBrand(JSON.parse(brandData))
-      const parsedBrand = JSON.parse(brandData)
-      loadProducts(parsedBrand.id)
-        .finally(() => setLoading(false))
-    } else {
+    if (!authLoading && !user) {
+      navigate('/auth/signin', { replace: true })
+      return
+    }
+
+    if (!authLoading && user?.role !== 'BRAND') {
+      navigate('/shop', { replace: true })
+      return
+    }
+
+    if (!authLoading && user?.role === 'BRAND') {
       loadBrand()
-        .then((data) => loadProducts(data.id))
-        .catch(() => setLoading(false))
-        .finally(() => setLoading(false))
     }
-  }, [])
+  }, [user, authLoading])
 
-  const stats = {
-    totalProducts: products.length,
-    totalSales: products.reduce((sum, p) => sum + (p.stock || 0), 0),
-    totalRevenue: products.reduce((sum, p) => sum + (p.price || 0), 0),
-    totalViews: products.length * 100,
-    customers: 0,
-    conversionRate: 8.5
-  }
-
-  const handleAddProduct = async (e: React.FormEvent) => {
-    e.preventDefault()
-    const form = e.target as HTMLFormElement
-    const formData = new FormData(form)
-
-    const name = formData.get('name')
-    const description = formData.get('description')
-    const price = formData.get('price')
-    const stock = formData.get('stock')
-    const imageUrl = formData.get('imageUrl')
-    const category = formData.get('category')
-
-    const token = localStorage.getItem('token')
-    const response = await fetch(
-      `${API_URL}/api/products`,
-      {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${token}`,
-        },
-        body: JSON.stringify({
-          name,
-          description,
-          price: Number(price),
-          stock: Number(stock),
-          imageUrl,
-          category,
-        }),
-      }
-    )
-    if (response.ok) {
-      setShowAddProduct(false)
-      // Refresh products
-      if (brand) {
-        loadProducts(brand.id)
-      }
-    }
-  }
-
-  const updateProduct = async (
-    productId: string,
-    productData: {
-      name: string
-      description: string
-      price: number
-      stock: number
-      imageUrl?: string
-      category: string
-    }
-  ) => {
-    const token = localStorage.getItem('token')
-
-    const response = await fetch(
-      `${API_URL}/api/products/${productId}`,
-      {
-        method: 'PATCH',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${token}`,
-        },
-        body: JSON.stringify(productData),
-      }
-    )
-
-    const data = await response.json()
-
-    if (!response.ok) {
-      throw new Error(
-        data.error || 'Failed to update product'
-      )
-    }
-
-    return data
-  }
-
-  const deleteProduct = async (
-    productId: string
-  ) => {
-    const token = localStorage.getItem('token')
-
-    const response = await fetch(
-      `${API_URL}/api/products/${productId}`,
-      {
-        method: 'DELETE',
-        headers: {
-          Authorization: `Bearer ${token}`,
-        },
-      }
-    )
-
-    const data = await response.json()
-
-    if (!response.ok) {
-      throw new Error(
-        data.error || 'Failed to delete product'
-      )
-    }
-
-    return data
-  }
-
-  const handleDeleteProduct = async (productId: string) => {
+  const loadBrand = async () => {
     try {
-      await deleteProduct(productId)
-      if (brand) {
-        loadProducts(brand.id)
+      setLoading(true)
+      setError('')
+
+      const token = localStorage.getItem('token')
+
+      if (!token) {
+        navigate('/auth/signin', { replace: true })
+        return
       }
-    } catch (error) {
-      console.error('Failed to delete product:', error)
+
+      const response = await fetch(
+        `${API_URL}/api/brand/me`,
+        {
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+        }
+      )
+
+      const data = await response.json()
+
+      if (response.status === 401) {
+        localStorage.removeItem('token')
+        localStorage.removeItem('user')
+        localStorage.removeItem('brand')
+
+        navigate('/auth/signin', { replace: true })
+        return
+      }
+
+      if (!response.ok) {
+        throw new Error(
+          data.error || 'Failed to load brand'
+        )
+      }
+
+      setBrand(data)
+    } catch (err: any) {
+      setError(
+        err.message || 'Failed to load brand dashboard'
+      )
+    } finally {
+      setLoading(false)
     }
   }
 
-  const handleEditProduct = (product: any) => {
-    setEditingProduct(product)
+  const updateForm = (
+    field: keyof ProductForm,
+    value: string
+  ) => {
+    setForm((previous) => ({
+      ...previous,
+      [field]: value,
+    }))
   }
 
-  const handleUpdateProduct = async (e: React.FormEvent) => {
+  const resetForm = () => {
+    setForm(emptyForm)
+    setEditingProduct(null)
+    setShowAddProduct(false)
+  }
+
+  const handleAddProduct = async (
+    e: React.FormEvent
+  ) => {
     e.preventDefault()
+
+    try {
+      setSubmitting(true)
+      setError('')
+
+      const token = localStorage.getItem('token')
+
+      if (!token) {
+        throw new Error('You are not authenticated')
+      }
+
+      const response = await fetch(
+        `${API_URL}/api/products`,
+        {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            Authorization: `Bearer ${token}`,
+          },
+          body: JSON.stringify({
+            name: form.name.trim(),
+            description: form.description.trim(),
+            price: Number(form.price),
+            stock: Number(form.stock),
+            category: form.category.trim(),
+            imageUrl: form.imageUrl.trim() || null,
+          }),
+        }
+      )
+
+      const data = await response.json()
+
+      if (!response.ok) {
+        throw new Error(
+          data.error || 'Failed to create product'
+        )
+      }
+
+      await loadBrand()
+      resetForm()
+    } catch (err: any) {
+      setError(
+        err.message || 'Failed to create product'
+      )
+    } finally {
+      setSubmitting(false)
+    }
+  }
+
+  const handleEditProduct = (product: Product) => {
+    setEditingProduct(product)
+
+    setForm({
+      name: product.name,
+      description: product.description,
+      price: String(product.price),
+      stock: String(product.stock),
+      category: product.category,
+      imageUrl: product.imageUrl || '',
+    })
+
+    setShowAddProduct(false)
+
+    window.scrollTo({
+      top: 0,
+      behavior: 'smooth',
+    })
+  }
+
+  const handleUpdateProduct = async (
+    e: React.FormEvent
+  ) => {
+    e.preventDefault()
+
     if (!editingProduct) return
 
-    const form = e.target as HTMLFormElement
-    const formData = new FormData(form)
+    try {
+      setSubmitting(true)
+      setError('')
 
-    const productData = {
-      name: formData.get('name') as string,
-      description: formData.get('description') as string,
-      price: Number(formData.get('price')),
-      stock: Number(formData.get('stock')),
-      category: formData.get('category') as string,
-      imageUrl: formData.get('imageUrl') as string,
+      const token = localStorage.getItem('token')
+
+      if (!token) {
+        throw new Error('You are not authenticated')
+      }
+
+      const response = await fetch(
+        `${API_URL}/api/products/${editingProduct.id}`,
+        {
+          method: 'PATCH',
+          headers: {
+            'Content-Type': 'application/json',
+            Authorization: `Bearer ${token}`,
+          },
+          body: JSON.stringify({
+            name: form.name.trim(),
+            description: form.description.trim(),
+            price: Number(form.price),
+            stock: Number(form.stock),
+            category: form.category.trim(),
+            imageUrl: form.imageUrl.trim() || null,
+          }),
+        }
+      )
+
+      const data = await response.json()
+
+      if (!response.ok) {
+        throw new Error(
+          data.error || 'Failed to update product'
+        )
+      }
+
+      await loadBrand()
+      resetForm()
+    } catch (err: any) {
+      setError(
+        err.message || 'Failed to update product'
+      )
+    } finally {
+      setSubmitting(false)
     }
+  }
+
+  const handleDeleteProduct = async (
+    productId: string
+  ) => {
+    const confirmed = window.confirm(
+      'Are you sure you want to delete this product?'
+    )
+
+    if (!confirmed) return
 
     try {
-      await updateProduct(editingProduct.id, productData)
-      setEditingProduct(null)
-      if (brand) {
-        loadProducts(brand.id)
+      setError('')
+
+      const token = localStorage.getItem('token')
+
+      if (!token) {
+        throw new Error('You are not authenticated')
       }
-    } catch (error) {
-      console.error('Failed to update product:', error)
+
+      const response = await fetch(
+        `${API_URL}/api/products/${productId}`,
+        {
+          method: 'DELETE',
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+        }
+      )
+
+      const data = await response.json()
+
+      if (!response.ok) {
+        throw new Error(
+          data.error || 'Failed to delete product'
+        )
+      }
+
+      if (editingProduct?.id === productId) {
+        resetForm()
+      }
+
+      await loadBrand()
+    } catch (err: any) {
+      setError(
+        err.message || 'Failed to delete product'
+      )
     }
   }
 
-  if (loading) {
+  if (authLoading || loading) {
     return (
-      <div className="min-vh-100 bg-light d-flex align-items-center justify-content-center">
-        <p className="text-secondary">Loading...</p>
-      </div>
+      <>
+        <Navbar />
+
+        <div className="min-vh-100 d-flex align-items-center justify-content-center">
+          <div className="text-center">
+            <div
+              className="spinner-border mb-3"
+              role="status"
+            >
+              <span className="visually-hidden">
+                Loading...
+              </span>
+            </div>
+
+            <p className="text-secondary">
+              Loading your brand dashboard...
+            </p>
+          </div>
+        </div>
+      </>
     )
   }
+
+  if (!brand) {
+    return (
+      <>
+        <Navbar />
+
+        <div className="container py-5">
+          <Card>
+            <CardContent className="py-5 text-center">
+              <Store
+                className="mx-auto mb-3 text-secondary"
+                style={{
+                  width: 48,
+                  height: 48,
+                }}
+              />
+
+              <h2 className="h4 fw-bold">
+                Brand not found
+              </h2>
+
+              <p className="text-secondary mb-4">
+                We couldn't find a brand associated with
+                your account.
+              </p>
+
+              <Button onClick={loadBrand}>
+                <RefreshCw
+                  style={{
+                    width: 16,
+                    height: 16,
+                    marginRight: 8,
+                  }}
+                />
+                Try Again
+              </Button>
+            </CardContent>
+          </Card>
+        </div>
+      </>
+    )
+  }
+
+  const products = brand.products || []
+
+  const totalProducts = products.length
+
+  const totalStock = products.reduce(
+    (total, product) =>
+      total + product.stock,
+    0
+  )
+
+  const outOfStock = products.filter(
+    (product) => product.stock === 0
+  ).length
+
+  const lowStock = products.filter(
+    (product) =>
+      product.stock > 0 &&
+      product.stock <= 5
+  ).length
+
+  const status =
+    brand.status?.toLowerCase()
+
+  const isApproved = status === 'approved'
+  const isRejected = status === 'rejected'
 
   return (
     <div className="min-vh-100 bg-light">
       <Navbar />
 
-      <div className="container py-4">
-        {/* Welcome Section */}
-        <div className="mb-4">
-          <h1 className="display-6 fw-bold mb-2">Brand Dashboard</h1>
-          <p className="text-secondary">Welcome back! Here's an overview of your store performance.</p>
-        </div>
+      <main className="container py-4 py-md-5">
+        {/* Header */}
+        <div className="d-flex flex-column flex-md-row align-items-md-center justify-content-between gap-3 mb-4">
+          <div>
+            <p className="text-secondary mb-1">
+              Brand Dashboard
+            </p>
 
-        {/* Stats Grid */}
-        <div className="row row-cols-1 row-cols-md-2 row-cols-lg-4 g-4 mb-4">
-          <div className="col">
-            <Card className="border-2">
-              <CardHeader className="d-flex flex-row align-items-center justify-content-between pb-2">
-                <CardTitle className="small text-secondary">Total Revenue</CardTitle>
-                <DollarSign style={{ width: '16px', height: '16px', color: '#6f42c1' }} />
-              </CardHeader>
-              <CardContent>
-                <div className="fs-4 fw-bold">${stats.totalRevenue.toLocaleString()}</div>
-                <p className="small text-success d-flex align-items-center gap-1 mt-1">
-                  <ArrowUpRight style={{ width: '12px', height: '12px' }} />
-                  +12.5% from last month
-                </p>
-              </CardContent>
-            </Card>
+            <h1 className="h2 fw-bold mb-1">
+              {brand.name}
+            </h1>
+
+            <p className="text-secondary mb-0">
+              Manage your products and brand.
+            </p>
           </div>
 
-          <div className="col">
-            <Card className="border-2">
-              <CardHeader className="d-flex flex-row align-items-center justify-content-between pb-2">
-                <CardTitle className="small text-secondary">Total Sales</CardTitle>
-                <ShoppingCart style={{ width: '16px', height: '16px', color: '#d63384' }} />
-              </CardHeader>
-              <CardContent>
-                <div className="fs-4 fw-bold">{stats.totalSales}</div>
-                <p className="small text-success d-flex align-items-center gap-1 mt-1">
-                  <ArrowUpRight style={{ width: '12px', height: '12px' }} />
-                  +8.2% from last month
-                </p>
-              </CardContent>
-            </Card>
-          </div>
+          <div className="d-flex gap-2">
+            <Button
+              variant="outline"
+              onClick={loadBrand}
+              disabled={loading}
+            >
+              <RefreshCw
+                style={{
+                  width: 16,
+                  height: 16,
+                  marginRight: 6,
+                }}
+              />
+              Refresh
+            </Button>
 
-          <div className="col">
-            <Card className="border-2">
-              <CardHeader className="d-flex flex-row align-items-center justify-content-between pb-2">
-                <CardTitle className="small text-secondary">Product Views</CardTitle>
-                <Eye style={{ width: '16px', height: '16px', color: '#0d6efd' }} />
-              </CardHeader>
-              <CardContent>
-                <div className="fs-4 fw-bold">{stats.totalViews.toLocaleString()}</div>
-                <p className="small text-success d-flex align-items-center gap-1 mt-1">
-                  <ArrowUpRight style={{ width: '12px', height: '12px' }} />
-                  +15.3% from last month
-                </p>
-              </CardContent>
-            </Card>
-          </div>
-
-          <div className="col">
-            <Card className="border-2">
-              <CardHeader className="d-flex flex-row align-items-center justify-content-between pb-2">
-                <CardTitle className="small text-secondary">Conversion Rate</CardTitle>
-                <TrendingUp style={{ width: '16px', height: '16px', color: '#198754' }} />
-              </CardHeader>
-              <CardContent>
-                <div className="fs-4 fw-bold">{stats.conversionRate}%</div>
-                <p className="small text-danger d-flex align-items-center gap-1 mt-1">
-                  <ArrowDownRight style={{ width: '12px', height: '12px' }} />
-                  -2.1% from last month
-                </p>
-              </CardContent>
-            </Card>
+            <Button
+              onClick={() => {
+                setEditingProduct(null)
+                setForm(emptyForm)
+                setShowAddProduct(
+                  !showAddProduct
+                )
+              }}
+              style={{
+                background:
+                  'linear-gradient(to right, #6f42c1, #d63384)',
+                border: 'none',
+                color: 'white',
+              }}
+            >
+              <Plus
+                style={{
+                  width: 16,
+                  height: 16,
+                  marginRight: 6,
+                }}
+              />
+              Add Product
+            </Button>
           </div>
         </div>
 
-        {/* Main Content */}
-        <div className="row row-cols-lg-3 g-4">
-          {/* Products Section */}
-          <div className="col-lg-8">
-            <div className="d-flex align-items-center justify-content-between mb-4">
-              <h2 className="h4 fw-bold">Your Products</h2>
-              <Button onClick={() => setShowAddProduct(!showAddProduct)} className="gap-2" style={{ background: 'linear-gradient(to right, #6f42c1, #d63384)', border: 'none', color: 'white' }}>
-                <Plus style={{ width: '16px', height: '16px' }} />
-                Add Product
+        {/* Error */}
+        {error && (
+          <div
+            className="alert alert-danger d-flex align-items-center justify-content-between"
+            role="alert"
+          >
+            <span>{error}</span>
+
+            <button
+              type="button"
+              className="btn-close"
+              onClick={() => setError('')}
+            />
+          </div>
+        )}
+
+        {/* Brand status */}
+        <Card className="mb-4">
+          <CardContent className="py-3">
+            <div className="d-flex align-items-center justify-content-between gap-3">
+              <div className="d-flex align-items-center gap-3">
+                {isApproved ? (
+                  <CheckCircle
+                    className="text-success"
+                    style={{
+                      width: 24,
+                      height: 24,
+                    }}
+                  />
+                ) : isRejected ? (
+                  <XCircle
+                    className="text-danger"
+                    style={{
+                      width: 24,
+                      height: 24,
+                    }}
+                  />
+                ) : (
+                  <Clock
+                    className="text-warning"
+                    style={{
+                      width: 24,
+                      height: 24,
+                    }}
+                  />
+                )}
+
+                <div>
+                  <div className="fw-semibold">
+                    Brand status
+                  </div>
+
+                  <div className="small text-secondary">
+                    {isApproved
+                      ? 'Your brand is approved and active.'
+                      : isRejected
+                        ? 'Your brand application was rejected.'
+                        : 'Your brand is waiting for admin approval.'}
+                  </div>
+                </div>
+              </div>
+
+              <span
+                className={`badge ${
+                  isApproved
+                    ? 'text-bg-success'
+                    : isRejected
+                      ? 'text-bg-danger'
+                      : 'text-bg-warning'
+                }`}
+              >
+                {brand.status}
+              </span>
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* Stats */}
+        <div className="row g-3 mb-4">
+          <div className="col-12 col-sm-6 col-lg-4">
+            <Card>
+              <CardContent className="p-4">
+                <div className="d-flex align-items-center justify-content-between">
+                  <div>
+                    <p className="text-secondary small mb-1">
+                      Products
+                    </p>
+
+                    <h2 className="h3 fw-bold mb-0">
+                      {totalProducts}
+                    </h2>
+                  </div>
+
+                  <div className="p-3 rounded bg-light">
+                    <Package
+                      style={{
+                        width: 22,
+                        height: 22,
+                      }}
+                    />
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          </div>
+
+          <div className="col-12 col-sm-6 col-lg-4">
+            <Card>
+              <CardContent className="p-4">
+                <div className="d-flex align-items-center justify-content-between">
+                  <div>
+                    <p className="text-secondary small mb-1">
+                      Total Stock
+                    </p>
+
+                    <h2 className="h3 fw-bold mb-0">
+                      {totalStock}
+                    </h2>
+                  </div>
+
+                  <div className="p-3 rounded bg-light">
+                    <Store
+                      style={{
+                        width: 22,
+                        height: 22,
+                      }}
+                    />
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          </div>
+
+          <div className="col-12 col-sm-6 col-lg-4">
+            <Card>
+              <CardContent className="p-4">
+                <div className="d-flex align-items-center justify-content-between">
+                  <div>
+                    <p className="text-secondary small mb-1">
+                      Stock Alerts
+                    </p>
+
+                    <h2 className="h3 fw-bold mb-0">
+                      {outOfStock + lowStock}
+                    </h2>
+
+                    <p className="small text-secondary mb-0">
+                      {outOfStock} out of stock ·{' '}
+                      {lowStock} low stock
+                    </p>
+                  </div>
+
+                  <div className="p-3 rounded bg-light">
+                    <Package
+                      style={{
+                        width: 22,
+                        height: 22,
+                      }}
+                    />
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          </div>
+        </div>
+
+        {/* Add Product */}
+        {showAddProduct && (
+          <Card className="mb-4">
+            <CardHeader>
+              <CardTitle>
+                Add New Product
+              </CardTitle>
+
+              <CardDescription>
+                Add a product to your VAA storefront.
+              </CardDescription>
+            </CardHeader>
+
+            <CardContent>
+              <form
+                onSubmit={handleAddProduct}
+              >
+                <div className="row g-3">
+                  <div className="col-md-6">
+                    <Label htmlFor="product-name">
+                      Product Name
+                    </Label>
+
+                    <Input
+                      id="product-name"
+                      value={form.name}
+                      onChange={(e) =>
+                        updateForm(
+                          'name',
+                          e.target.value
+                        )
+                      }
+                      placeholder="e.g. Oversized Graphic Tee"
+                      required
+                    />
+                  </div>
+
+                  <div className="col-md-6">
+                    <Label htmlFor="product-price">
+                      Price
+                    </Label>
+
+                    <Input
+                      id="product-price"
+                      type="number"
+                      min="0"
+                      step="0.01"
+                      value={form.price}
+                      onChange={(e) =>
+                        updateForm(
+                          'price',
+                          e.target.value
+                        )
+                      }
+                      placeholder="0.00"
+                      required
+                    />
+                  </div>
+
+                  <div className="col-12">
+                    <Label htmlFor="product-description">
+                      Description
+                    </Label>
+
+                    <Input
+                      id="product-description"
+                      value={form.description}
+                      onChange={(e) =>
+                        updateForm(
+                          'description',
+                          e.target.value
+                        )
+                      }
+                      placeholder="Describe your product"
+                      required
+                    />
+                  </div>
+
+                  <div className="col-md-6">
+                    <Label htmlFor="product-category">
+                      Category
+                    </Label>
+
+                    <Input
+                      id="product-category"
+                      value={form.category}
+                      onChange={(e) =>
+                        updateForm(
+                          'category',
+                          e.target.value
+                        )
+                      }
+                      placeholder="T-Shirts"
+                      required
+                    />
+                  </div>
+
+                  <div className="col-md-6">
+                    <Label htmlFor="product-stock">
+                      Stock
+                    </Label>
+
+                    <Input
+                      id="product-stock"
+                      type="number"
+                      min="0"
+                      step="1"
+                      value={form.stock}
+                      onChange={(e) =>
+                        updateForm(
+                          'stock',
+                          e.target.value
+                        )
+                      }
+                      placeholder="0"
+                      required
+                    />
+                  </div>
+
+                  <div className="col-12">
+                    <Label htmlFor="product-image">
+                      Image URL
+                    </Label>
+
+                    <Input
+                      id="product-image"
+                      type="url"
+                      value={form.imageUrl}
+                      onChange={(e) =>
+                        updateForm(
+                          'imageUrl',
+                          e.target.value
+                        )
+                      }
+                      placeholder="https://..."
+                    />
+                  </div>
+
+                  <div className="col-12 d-flex gap-2">
+                    <Button
+                      type="submit"
+                      disabled={submitting}
+                      style={{
+                        background:
+                          'linear-gradient(to right, #6f42c1, #d63384)',
+                        border: 'none',
+                        color: 'white',
+                      }}
+                    >
+                      {submitting
+                        ? 'Adding...'
+                        : 'Add Product'}
+                    </Button>
+
+                    <Button
+                      type="button"
+                      variant="outline"
+                      onClick={resetForm}
+                      disabled={submitting}
+                    >
+                      Cancel
+                    </Button>
+                  </div>
+                </div>
+              </form>
+            </CardContent>
+          </Card>
+        )}
+
+        {/* Edit Product */}
+        {editingProduct && (
+          <Card className="mb-4">
+            <CardHeader>
+              <CardTitle>
+                Edit Product
+              </CardTitle>
+
+              <CardDescription>
+                Update the details of{' '}
+                {editingProduct.name}.
+              </CardDescription>
+            </CardHeader>
+
+            <CardContent>
+              <form
+                onSubmit={handleUpdateProduct}
+              >
+                <div className="row g-3">
+                  <div className="col-md-6">
+                    <Label htmlFor="edit-name">
+                      Product Name
+                    </Label>
+
+                    <Input
+                      id="edit-name"
+                      value={form.name}
+                      onChange={(e) =>
+                        updateForm(
+                          'name',
+                          e.target.value
+                        )
+                      }
+                      required
+                    />
+                  </div>
+
+                  <div className="col-md-6">
+                    <Label htmlFor="edit-price">
+                      Price
+                    </Label>
+
+                    <Input
+                      id="edit-price"
+                      type="number"
+                      min="0"
+                      step="0.01"
+                      value={form.price}
+                      onChange={(e) =>
+                        updateForm(
+                          'price',
+                          e.target.value
+                        )
+                      }
+                      required
+                    />
+                  </div>
+
+                  <div className="col-12">
+                    <Label htmlFor="edit-description">
+                      Description
+                    </Label>
+
+                    <Input
+                      id="edit-description"
+                      value={form.description}
+                      onChange={(e) =>
+                        updateForm(
+                          'description',
+                          e.target.value
+                        )
+                      }
+                      required
+                    />
+                  </div>
+
+                  <div className="col-md-6">
+                    <Label htmlFor="edit-category">
+                      Category
+                    </Label>
+
+                    <Input
+                      id="edit-category"
+                      value={form.category}
+                      onChange={(e) =>
+                        updateForm(
+                          'category',
+                          e.target.value
+                        )
+                      }
+                      required
+                    />
+                  </div>
+
+                  <div className="col-md-6">
+                    <Label htmlFor="edit-stock">
+                      Stock
+                    </Label>
+
+                    <Input
+                      id="edit-stock"
+                      type="number"
+                      min="0"
+                      step="1"
+                      value={form.stock}
+                      onChange={(e) =>
+                        updateForm(
+                          'stock',
+                          e.target.value
+                        )
+                      }
+                      required
+                    />
+                  </div>
+
+                  <div className="col-12">
+                    <Label htmlFor="edit-image">
+                      Image URL
+                    </Label>
+
+                    <Input
+                      id="edit-image"
+                      type="url"
+                      value={form.imageUrl}
+                      onChange={(e) =>
+                        updateForm(
+                          'imageUrl',
+                          e.target.value
+                        )
+                      }
+                    />
+                  </div>
+
+                  <div className="col-12 d-flex gap-2">
+                    <Button
+                      type="submit"
+                      disabled={submitting}
+                      style={{
+                        background:
+                          'linear-gradient(to right, #6f42c1, #d63384)',
+                        border: 'none',
+                        color: 'white',
+                      }}
+                    >
+                      {submitting
+                        ? 'Updating...'
+                        : 'Update Product'}
+                    </Button>
+
+                    <Button
+                      type="button"
+                      variant="outline"
+                      onClick={resetForm}
+                      disabled={submitting}
+                    >
+                      Cancel
+                    </Button>
+                  </div>
+                </div>
+              </form>
+            </CardContent>
+          </Card>
+        )}
+
+        {/* Products */}
+        <div className="d-flex align-items-center justify-content-between mb-3">
+          <div>
+            <h2 className="h4 fw-bold mb-1">
+              Your Products
+            </h2>
+
+            <p className="text-secondary small mb-0">
+              {totalProducts === 0
+                ? 'You have not added any products yet.'
+                : `${totalProducts} product${
+                    totalProducts === 1
+                      ? ''
+                      : 's'
+                  }`}
+            </p>
+          </div>
+        </div>
+
+        {products.length === 0 ? (
+          <Card>
+            <CardContent className="py-5 text-center">
+              <Package
+                className="mx-auto mb-3 text-secondary"
+                style={{
+                  width: 48,
+                  height: 48,
+                }}
+              />
+
+              <h3 className="h5 fw-bold">
+                No products yet
+              </h3>
+
+              <p className="text-secondary mb-4">
+                Start building your storefront by
+                adding your first product.
+              </p>
+
+              <Button
+                onClick={() => {
+                  setEditingProduct(null)
+                  setForm(emptyForm)
+                  setShowAddProduct(true)
+                }}
+                style={{
+                  background:
+                    'linear-gradient(to right, #6f42c1, #d63384)',
+                  border: 'none',
+                  color: 'white',
+                }}
+              >
+                <Plus
+                  style={{
+                    width: 16,
+                    height: 16,
+                    marginRight: 6,
+                  }}
+                />
+                Add Your First Product
               </Button>
-            </div>
-
-            {showAddProduct && (
-              <Card className="mb-4 border-2">
-                <CardHeader>
-                  <CardTitle>Add New Product</CardTitle>
-                  <CardDescription>Fill in the details to list a new product</CardDescription>
-                </CardHeader>
-                <CardContent>
-                  <form onSubmit={handleAddProduct}>
-                    <div className="row g-3">
-                      <div className="col-md-6">
-                        <Label htmlFor="name">Product Name</Label>
-                        <Input id="name" name="name" placeholder="Product name" required />
-                      </div>
-                      <div className="col-md-6">
-                        <Label htmlFor="price">Price</Label>
-                        <Input id="price" name="price" type="number" placeholder="0.00" required />
-                      </div>
-                      <div className="col-12">
-                        <Label htmlFor="description">Description</Label>
-                        <Input id="description" name="description" placeholder="Product description" required />
-                      </div>
-                      <div className="col-md-6">
-                        <Label htmlFor="category">Category</Label>
-                        <Input id="category" name="category" placeholder="Category" required />
-                      </div>
-                      <div className="col-md-6">
-                        <Label htmlFor="stock">Stock</Label>
-                        <Input id="stock" name="stock" type="number" placeholder="0" required />
-                      </div>
-                      <div className="col-12">
-                        <Label htmlFor="imageUrl">Image URL</Label>
-                        <Input id="imageUrl" name="imageUrl" placeholder="https://..." required />
-                      </div>
-                      <div className="col-12 d-flex gap-2">
-                        <Button type="submit" style={{ background: 'linear-gradient(to right, #6f42c1, #d63384)', border: 'none', color: 'white' }}>Add Product</Button>
-                        <Button type="button" variant="outline" onClick={() => setShowAddProduct(false)}>
-                          Cancel
-                        </Button>
-                      </div>
+            </CardContent>
+          </Card>
+        ) : (
+          <div className="d-flex flex-column gap-3">
+            {products.map((product) => (
+              <Card
+                key={product.id}
+                className="overflow-hidden"
+              >
+                <CardContent className="p-0">
+                  <div className="row g-0">
+                    <div className="col-auto">
+                      {product.imageUrl ? (
+                        <img
+                          src={product.imageUrl}
+                          alt={product.name}
+                          style={{
+                            width: 140,
+                            height: 140,
+                            objectFit: 'cover',
+                            display: 'block',
+                          }}
+                        />
+                      ) : (
+                        <div
+                          className="d-flex align-items-center justify-content-center bg-light"
+                          style={{
+                            width: 140,
+                            height: 140,
+                          }}
+                        >
+                          <Package
+                            className="text-secondary"
+                            style={{
+                              width: 36,
+                              height: 36,
+                            }}
+                          />
+                        </div>
+                      )}
                     </div>
-                  </form>
-                </CardContent>
-              </Card>
-            )}
 
-            {editingProduct && (
-              <Card className="mb-4 border-2">
-                <CardHeader>
-                  <CardTitle>Edit Product</CardTitle>
-                  <CardDescription>Update product details</CardDescription>
-                </CardHeader>
-                <CardContent>
-                  <form onSubmit={handleUpdateProduct}>
-                    <div className="row g-3">
-                      <div className="col-md-6">
-                        <Label htmlFor="edit-name">Product Name</Label>
-                        <Input id="edit-name" name="name" defaultValue={editingProduct.name} required />
-                      </div>
-                      <div className="col-md-6">
-                        <Label htmlFor="edit-price">Price</Label>
-                        <Input id="edit-price" name="price" type="number" defaultValue={editingProduct.price} required />
-                      </div>
-                      <div className="col-12">
-                        <Label htmlFor="edit-description">Description</Label>
-                        <Input id="edit-description" name="description" defaultValue={editingProduct.description} required />
-                      </div>
-                      <div className="col-md-6">
-                        <Label htmlFor="edit-category">Category</Label>
-                        <Input id="edit-category" name="category" defaultValue={editingProduct.category} required />
-                      </div>
-                      <div className="col-md-6">
-                        <Label htmlFor="edit-stock">Stock</Label>
-                        <Input id="edit-stock" name="stock" type="number" defaultValue={editingProduct.stock} required />
-                      </div>
-                      <div className="col-12">
-                        <Label htmlFor="edit-imageUrl">Image URL</Label>
-                        <Input id="edit-imageUrl" name="imageUrl" defaultValue={editingProduct.imageUrl || editingProduct.image} required />
-                      </div>
-                      <div className="col-12 d-flex gap-2">
-                        <Button type="submit" style={{ background: 'linear-gradient(to right, #6f42c1, #d63384)', border: 'none', color: 'white' }}>Update Product</Button>
-                        <Button type="button" variant="outline" onClick={() => setEditingProduct(null)}>
-                          Cancel
-                        </Button>
-                      </div>
-                    </div>
-                  </form>
-                </CardContent>
-              </Card>
-            )}
-
-            <div className="d-flex flex-column gap-3">
-              {products.map(product => (
-                <Card key={product.id} className="overflow-hidden">
-                  <CardContent className="p-0">
-                    <div className="d-flex">
-                      <img
-                        src={product.imageUrl || product.image}
-                        alt={product.name}
-                        className="object-cover"
-                        style={{ width: '128px', height: '128px' }}
-                      />
-                      <div className="flex-1 p-3">
-                        <div className="d-flex align-items-start justify-content-between mb-2">
+                    <div className="col">
+                      <div className="p-3">
+                        <div className="d-flex align-items-start justify-content-between gap-3">
                           <div>
-                            <h3 className="fw-semibold fs-5">{product.name}</h3>
-                            <p className="small text-secondary">${product.price}</p>
+                            <h3 className="h5 fw-semibold mb-1">
+                              {product.name}
+                            </h3>
+
+                            <p className="text-secondary small mb-1">
+                              {product.category}
+                            </p>
+
+                            <p className="fw-bold mb-2">
+                              KSh{' '}
+                              {Number(
+                                product.price
+                              ).toLocaleString()}
+                            </p>
                           </div>
-                          <div className="d-flex gap-2">
-                            <Button variant="ghost" size="icon" style={{ width: '32px', height: '32px' }} onClick={() => handleEditProduct(product)}>
-                              <Edit style={{ width: '16px', height: '16px' }} />
+
+                          <div className="d-flex gap-1">
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              onClick={() =>
+                                handleEditProduct(
+                                  product
+                                )
+                              }
+                              aria-label={`Edit ${product.name}`}
+                            >
+                              <Edit
+                                style={{
+                                  width: 16,
+                                  height: 16,
+                                }}
+                              />
                             </Button>
-                            <Button variant="ghost" size="icon" className="text-danger" style={{ width: '32px', height: '32px' }} onClick={() => handleDeleteProduct(product.id)}>
-                              <Trash2 style={{ width: '16px', height: '16px' }} />
+
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              className="text-danger"
+                              onClick={() =>
+                                handleDeleteProduct(
+                                  product.id
+                                )
+                              }
+                              aria-label={`Delete ${product.name}`}
+                            >
+                              <Trash2
+                                style={{
+                                  width: 16,
+                                  height: 16,
+                                }}
+                              />
                             </Button>
                           </div>
                         </div>
-                        <div className="row g-3 small">
-                          <div className="col-3">
-                            <p className="text-secondary">Stock</p>
-                            <p className="fw-semibold">{product.stock}</p>
-                          </div>
-                          <div className="col-3">
-                            <p className="text-secondary">Sales</p>
-                            <p className="fw-semibold">{product.sales || 0}</p>
-                          </div>
-                          <div className="col-3">
-                            <p className="text-secondary">Views</p>
-                            <p className="fw-semibold">{product.views || 0}</p>
-                          </div>
-                          <div className="col-3">
-                            <p className="text-secondary">Revenue</p>
-                            <p className="fw-semibold text-success">${(product.revenue || 0).toLocaleString()}</p>
-                          </div>
+
+                        <p className="small text-secondary mb-3">
+                          {product.description}
+                        </p>
+
+                        <div className="d-flex flex-wrap gap-2">
+                          <span
+                            className={`badge ${
+                              product.stock === 0
+                                ? 'text-bg-danger'
+                                : product.stock <= 5
+                                  ? 'text-bg-warning'
+                                  : 'text-bg-success'
+                            }`}
+                          >
+                            {product.stock === 0
+                              ? 'Out of stock'
+                              : `${product.stock} in stock`}
+                          </span>
                         </div>
                       </div>
                     </div>
-                  </CardContent>
-                </Card>
-              ))}
-            </div>
+                  </div>
+                </CardContent>
+              </Card>
+            ))}
           </div>
-
-          {/* Sidebar */}
-          <div className="col d-flex flex-column gap-4">
-            {/* Recent Orders */}
-            <Card>
-              <CardHeader>
-                <CardTitle className="d-flex align-items-center gap-2">
-                  <ShoppingCart style={{ width: '20px', height: '20px' }} />
-                  Recent Orders
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                <p className="text-muted small">Order tracking coming soon</p>
-              </CardContent>
-            </Card>
-
-            {/* Quick Stats */}
-            <Card>
-              <CardHeader>
-                <CardTitle className="d-flex align-items-center gap-2">
-                  <BarChart3 style={{ width: '20px', height: '20px' }} />
-                  Performance
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="d-flex flex-column gap-3">
-                  <div>
-                    <div className="d-flex justify-content-between small mb-1">
-                      <span className="text-secondary">Sales Goal</span>
-                      <span className="fw-medium">75%</span>
-                    </div>
-                    <div className="progress" style={{ height: '8px' }}>
-                      <div className="progress-bar" style={{ width: '75%', background: 'linear-gradient(to right, #6f42c1, #d63384)' }} />
-                    </div>
-                  </div>
-                  <div>
-                    <div className="d-flex justify-content-between small mb-1">
-                      <span className="text-secondary">Inventory</span>
-                      <span className="fw-medium">60%</span>
-                    </div>
-                    <div className="progress" style={{ height: '8px' }}>
-                      <div className="progress-bar" style={{ width: '60%', background: 'linear-gradient(to right, #0d6efd, #0dcaf0)' }} />
-                    </div>
-                  </div>
-                  <div>
-                    <div className="d-flex justify-content-between small mb-1">
-                      <span className="text-secondary">Customer Satisfaction</span>
-                      <span className="fw-medium">92%</span>
-                    </div>
-                    <div className="progress" style={{ height: '8px' }}>
-                      <div className="progress-bar" style={{ width: '92%', background: 'linear-gradient(to right, #198754, #20c997)' }} />
-                    </div>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-
-            {/* Top Products */}
-            <Card>
-              <CardHeader>
-                <CardTitle className="d-flex align-items-center gap-2">
-                  <TrendingUp style={{ width: '20px', height: '20px' }} />
-                  Top Performing
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="d-flex flex-column gap-2">
-                  {products.slice(0, 3).map((product, index) => (
-                    <div key={product.id} className="d-flex align-items-center gap-2">
-                      <span className={`rounded-circle d-flex align-items-center justify-content-center small fw-bold ${index === 0 ? 'bg-warning text-warning-emphasis' :
-                        index === 1 ? 'bg-secondary text-white' :
-                          'bg-orange-100 text-orange-700'
-                        }`} style={{ width: '24px', height: '24px' }}>
-                        {index + 1}
-                      </span>
-                      <div className="flex-1">
-                        <p className="small fw-medium">{product.name}</p>
-                        <p className="small text-secondary">${product.revenue.toLocaleString()} revenue</p>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              </CardContent>
-            </Card>
-          </div>
-        </div>
-      </div>
+        )}
+      </main>
     </div>
   )
 }
