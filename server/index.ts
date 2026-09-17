@@ -1,3 +1,4 @@
+
 import express from 'express'
 import cors from 'cors'
 import bcrypt from 'bcryptjs'
@@ -7,15 +8,19 @@ import { prisma } from '../src/lib/prisma'
 const app = express()
 
 const PORT = Number(process.env.PORT) || 3001
-
 const JWT_SECRET = process.env.JWT_SECRET
-
-if (!JWT_SECRET) {
-  throw new Error('JWT_SECRET is required')
-}
-
 const CLIENT_URL =
   process.env.CLIENT_URL || 'http://localhost:5173'
+
+if (!JWT_SECRET) {
+  throw new Error(
+    'JWT_SECRET is required. Add it to your server .env file.'
+  )
+}
+
+/* =========================
+   MIDDLEWARE
+========================= */
 
 app.use(
   cors({
@@ -26,19 +31,37 @@ app.use(
 
 app.use(express.json())
 
+/* =========================
+   TYPES
+========================= */
+
+type UserRole =
+  | 'CUSTOMER'
+  | 'BRAND'
+  | 'ADMIN'
+
 interface AuthUser {
   userId: string
-  role: 'CUSTOMER' | 'BRAND' | 'ADMIN'
+  role: UserRole
 }
+
+/* =========================
+   AUTH HELPERS
+========================= */
 
 const generateToken = (
   userId: string,
-  role: AuthUser['role']
+  role: UserRole
 ) => {
   return jwt.sign(
-    { userId, role },
+    {
+      userId,
+      role,
+    },
     JWT_SECRET,
-    { expiresIn: '7d' }
+    {
+      expiresIn: '7d',
+    }
   )
 }
 
@@ -60,7 +83,8 @@ const authenticate = (
   res: any,
   next: any
 ) => {
-  const authHeader = req.headers.authorization
+  const authHeader =
+    req.headers.authorization
 
   if (
     !authHeader ||
@@ -71,8 +95,11 @@ const authenticate = (
     })
   }
 
-  const token = authHeader.substring(7)
-  const decoded = verifyToken(token)
+  const token =
+    authHeader.substring(7)
+
+  const decoded =
+    verifyToken(token)
 
   if (!decoded) {
     return res.status(401).json({
@@ -81,12 +108,23 @@ const authenticate = (
   }
 
   req.user = decoded
+
   next()
 }
 
-const requireRole = (...roles: AuthUser['role'][]) => {
-  return (req: any, res: any, next: any) => {
-    if (!roles.includes(req.user.role)) {
+const requireRole = (
+  ...roles: UserRole[]
+) => {
+  return (
+    req: any,
+    res: any,
+    next: any
+  ) => {
+    if (
+      !roles.includes(
+        req.user.role
+      )
+    ) {
       return res.status(403).json({
         error: 'Forbidden',
       })
@@ -97,80 +135,124 @@ const requireRole = (...roles: AuthUser['role'][]) => {
 }
 
 /* =========================
+   HEALTH CHECK
+========================= */
+
+app.get('/api/health', (_req, res) => {
+  res.json({
+    success: true,
+    message: 'VAA API is running',
+  })
+})
+
+/* =========================
    AUTH
 ========================= */
 
-app.post('/api/auth/signup', async (req, res) => {
-  try {
-    const {
-      email,
-      password,
-      name,
-    } = req.body
+/*
+ * CUSTOMER SIGN UP
+ */
 
-    if (!email || !password) {
-      return res.status(400).json({
-        error: 'Email and password are required',
-      })
-    }
+app.post(
+  '/api/auth/signup',
+  async (req, res) => {
+    try {
+      const {
+        email,
+        password,
+        name,
+      } = req.body
 
-    if (password.length < 6) {
-      return res.status(400).json({
-        error:
-          'Password must be at least 6 characters',
-      })
-    }
+      if (!email || !password) {
+        return res.status(400).json({
+          error:
+            'Email and password are required',
+        })
+      }
 
-    const normalizedEmail =
-      String(email).trim().toLowerCase()
+      if (
+        typeof password !== 'string' ||
+        password.length < 6
+      ) {
+        return res.status(400).json({
+          error:
+            'Password must be at least 6 characters',
+        })
+      }
 
-    const existingUser =
-      await prisma.user.findUnique({
-        where: {
-          email: normalizedEmail,
+      const normalizedEmail =
+        String(email)
+          .trim()
+          .toLowerCase()
+
+      const existingUser =
+        await prisma.user.findUnique({
+          where: {
+            email: normalizedEmail,
+          },
+        })
+
+      if (existingUser) {
+        return res.status(400).json({
+          error:
+            'Email already exists',
+        })
+      }
+
+      const hashedPassword =
+        await bcrypt.hash(
+          password,
+          12
+        )
+
+      const user =
+        await prisma.user.create({
+          data: {
+            email:
+              normalizedEmail,
+            password:
+              hashedPassword,
+            name:
+              name
+                ? String(name).trim()
+                : null,
+            role: 'CUSTOMER',
+          },
+        })
+
+      const token =
+        generateToken(
+          user.id,
+          user.role
+        )
+
+      return res.status(201).json({
+        token,
+
+        user: {
+          id: user.id,
+          email: user.email,
+          name: user.name,
+          role: user.role,
         },
       })
+    } catch (error) {
+      console.error(
+        'Customer signup error:',
+        error
+      )
 
-    if (existingUser) {
-      return res.status(400).json({
-        error: 'Email already exists',
+      return res.status(500).json({
+        error:
+          'Internal server error',
       })
     }
-
-    const hashedPassword =
-      await bcrypt.hash(password, 12)
-
-    const user = await prisma.user.create({
-      data: {
-        email: normalizedEmail,
-        password: hashedPassword,
-        name: name || null,
-        role: 'CUSTOMER',
-      },
-    })
-
-    const token = generateToken(
-      user.id,
-      user.role
-    )
-
-    res.status(201).json({
-      token,
-      user: {
-        id: user.id,
-        email: user.email,
-        name: user.name,
-        role: user.role,
-      },
-    })
-  } catch (error) {
-    console.error(error)
-
-    res.status(500).json({
-      error: 'Internal server error',
-    })
   }
-})
+)
+
+/*
+ * BRAND SIGN UP
+ */
 
 app.post(
   '/api/auth/brand-signup',
@@ -195,7 +277,10 @@ app.post(
         })
       }
 
-      if (password.length < 6) {
+      if (
+        typeof password !== 'string' ||
+        password.length < 6
+      ) {
         return res.status(400).json({
           error:
             'Password must be at least 6 characters',
@@ -203,7 +288,9 @@ app.post(
       }
 
       const normalizedEmail =
-        String(email).trim().toLowerCase()
+        String(email)
+          .trim()
+          .toLowerCase()
 
       const existingUser =
         await prisma.user.findUnique({
@@ -214,25 +301,42 @@ app.post(
 
       if (existingUser) {
         return res.status(400).json({
-          error: 'Email already exists',
+          error:
+            'Email already exists',
         })
       }
 
       const hashedPassword =
-        await bcrypt.hash(password, 12)
+        await bcrypt.hash(
+          password,
+          12
+        )
 
       const user =
         await prisma.user.create({
           data: {
-            email: normalizedEmail,
-            password: hashedPassword,
-            name: name || null,
+            email:
+              normalizedEmail,
+            password:
+              hashedPassword,
+            name:
+              name
+                ? String(name).trim()
+                : null,
             role: 'BRAND',
 
             brand: {
               create: {
-                name: brandName.trim(),
-                category: category || null,
+                name:
+                  String(
+                    brandName
+                  ).trim(),
+                category:
+                  category
+                    ? String(
+                      category
+                    ).trim()
+                    : null,
                 status: 'pending',
               },
             },
@@ -243,12 +347,13 @@ app.post(
           },
         })
 
-      const token = generateToken(
-        user.id,
-        user.role
-      )
+      const token =
+        generateToken(
+          user.id,
+          user.role
+        )
 
-      res.status(201).json({
+      return res.status(201).json({
         token,
 
         user: {
@@ -261,20 +366,38 @@ app.post(
         brand: user.brand,
       })
     } catch (error) {
-      console.error(error)
+      console.error(
+        'Brand signup error:',
+        error
+      )
 
-      res.status(500).json({
-        error: 'Internal server error',
+      return res.status(500).json({
+        error:
+          'Internal server error',
       })
     }
   }
 )
 
+/*
+ * SIGN IN
+ */
+
 app.post(
   '/api/auth/signin',
   async (req, res) => {
     try {
-      const { email, password } = req.body
+      const {
+        email,
+        password,
+      } = req.body
+
+      if (!email || !password) {
+        return res.status(400).json({
+          error:
+            'Email and password are required',
+        })
+      }
 
       const normalizedEmail =
         String(email)
@@ -290,7 +413,8 @@ app.post(
 
       if (!user) {
         return res.status(401).json({
-          error: 'Invalid credentials',
+          error:
+            'Invalid credentials',
         })
       }
 
@@ -302,14 +426,16 @@ app.post(
 
       if (!validPassword) {
         return res.status(401).json({
-          error: 'Invalid credentials',
+          error:
+            'Invalid credentials',
         })
       }
 
-      const token = generateToken(
-        user.id,
-        user.role
-      )
+      const token =
+        generateToken(
+          user.id,
+          user.role
+        )
 
       const userData = {
         id: user.id,
@@ -338,20 +464,38 @@ app.post(
         user: userData,
       })
     } catch (error) {
-      console.error(error)
+      console.error(
+        'Signin error:',
+        error
+      )
 
-      res.status(500).json({
-        error: 'Internal server error',
+      return res.status(500).json({
+        error:
+          'Internal server error',
       })
     }
   }
 )
 
+/*
+ * ADMIN SIGN IN
+ */
+
 app.post(
   '/api/auth/admin-signin',
   async (req, res) => {
     try {
-      const { email, password } = req.body
+      const {
+        email,
+        password,
+      } = req.body
+
+      if (!email || !password) {
+        return res.status(400).json({
+          error:
+            'Email and password are required',
+        })
+      }
 
       const normalizedEmail =
         String(email)
@@ -370,7 +514,8 @@ app.post(
         user.role !== 'ADMIN'
       ) {
         return res.status(401).json({
-          error: 'Invalid admin credentials',
+          error:
+            'Invalid admin credentials',
         })
       }
 
@@ -382,17 +527,20 @@ app.post(
 
       if (!validPassword) {
         return res.status(401).json({
-          error: 'Invalid credentials',
+          error:
+            'Invalid credentials',
         })
       }
 
-      const token = generateToken(
-        user.id,
-        user.role
-      )
+      const token =
+        generateToken(
+          user.id,
+          user.role
+        )
 
-      res.json({
+      return res.json({
         token,
+
         user: {
           id: user.id,
           email: user.email,
@@ -401,14 +549,22 @@ app.post(
         },
       })
     } catch (error) {
-      console.error(error)
+      console.error(
+        'Admin signin error:',
+        error
+      )
 
-      res.status(500).json({
-        error: 'Internal server error',
+      return res.status(500).json({
+        error:
+          'Internal server error',
       })
     }
   }
 )
+
+/*
+ * CURRENT USER
+ */
 
 app.get(
   '/api/auth/me',
@@ -431,16 +587,99 @@ app.get(
 
       if (!user) {
         return res.status(404).json({
-          error: 'User not found',
+          error:
+            'User not found',
         })
       }
 
-      res.json(user)
+      return res.json(user)
     } catch (error) {
-      console.error(error)
+      console.error(
+        'Get current user error:',
+        error
+      )
 
-      res.status(500).json({
-        error: 'Internal server error',
+      return res.status(500).json({
+        error:
+          'Internal server error',
+      })
+    }
+  }
+)
+
+/* =========================
+   BRAND
+========================= */
+
+/*
+ * GET LOGGED-IN BRAND
+ *
+ * This is the endpoint used by
+ * Brand/Dashboard.tsx
+ */
+
+app.get(
+  '/api/brand/me',
+  authenticate,
+  requireRole('BRAND'),
+  async (req: any, res) => {
+    try {
+      const brand =
+        await prisma.brand.findUnique({
+          where: {
+            userId:
+              req.user.userId,
+          },
+
+          select: {
+            id: true,
+            name: true,
+            description: true,
+            category: true,
+            status: true,
+            userId: true,
+            createdAt: true,
+            updatedAt: true,
+
+            products: {
+              orderBy: {
+                createdAt:
+                  'desc',
+              },
+
+              select: {
+                id: true,
+                name: true,
+                description: true,
+                price: true,
+                stock: true,
+                imageUrl: true,
+                category: true,
+                brandId: true,
+                createdAt: true,
+                updatedAt: true,
+              },
+            },
+          },
+        })
+
+      if (!brand) {
+        return res.status(404).json({
+          error:
+            'Brand not found',
+        })
+      }
+
+      return res.json(brand)
+    } catch (error) {
+      console.error(
+        'GET /api/brand/me error:',
+        error
+      )
+
+      return res.status(500).json({
+        error:
+          'Internal server error',
       })
     }
   }
@@ -450,45 +689,72 @@ app.get(
    PRODUCTS - PUBLIC
 ========================= */
 
-app.get('/api/products', async (_req, res) => {
-  try {
-    const products =
-      await prisma.product.findMany({
-        include: {
-          brand: {
-            select: {
-              id: true,
-              name: true,
-              description: true,
-              category: true,
-              status: true,
+/*
+ * GET ALL PRODUCTS
+ */
+
+app.get(
+  '/api/products',
+  async (_req, res) => {
+    try {
+      const products =
+        await prisma.product.findMany({
+          where: {
+            brand: {
+              status: 'approved',
             },
           },
-        },
 
-        orderBy: {
-          createdAt: 'desc',
-        },
+          include: {
+            brand: {
+              select: {
+                id: true,
+                name: true,
+                description: true,
+                category: true,
+                status: true,
+              },
+            },
+          },
+
+          orderBy: {
+            createdAt:
+              'desc',
+          },
+        })
+
+      return res.json(products)
+    } catch (error) {
+      console.error(
+        'Get products error:',
+        error
+      )
+
+      return res.status(500).json({
+        error:
+          'Internal server error',
       })
-
-    res.json(products)
-  } catch (error) {
-    console.error(error)
-
-    res.status(500).json({
-      error: 'Internal server error',
-    })
+    }
   }
-})
+)
+
+/*
+ * GET SINGLE PRODUCT
+ */
 
 app.get(
   '/api/products/:productId',
   async (req, res) => {
     try {
       const product =
-        await prisma.product.findUnique({
+        await prisma.product.findFirst({
           where: {
-            id: req.params.productId,
+            id:
+              req.params.productId,
+
+            brand: {
+              status: 'approved',
+            },
           },
 
           include: {
@@ -506,29 +772,58 @@ app.get(
 
       if (!product) {
         return res.status(404).json({
-          error: 'Product not found',
+          error:
+            'Product not found',
         })
       }
 
-      res.json(product)
+      return res.json(product)
     } catch (error) {
-      console.error(error)
+      console.error(
+        'Get product error:',
+        error
+      )
 
-      res.status(500).json({
-        error: 'Internal server error',
+      return res.status(500).json({
+        error:
+          'Internal server error',
       })
     }
   }
 )
 
+/*
+ * GET PRODUCTS BY BRAND
+ */
+
 app.get(
   '/api/products/brand/:brandId',
   async (req, res) => {
     try {
+      const brand =
+        await prisma.brand.findUnique({
+          where: {
+            id:
+              req.params.brandId,
+          },
+        })
+
+      if (
+        !brand ||
+        brand.status !==
+        'approved'
+      ) {
+        return res.status(404).json({
+          error:
+            'Brand not found',
+        })
+      }
+
       const products =
         await prisma.product.findMany({
           where: {
-            brandId: req.params.brandId,
+            brandId:
+              brand.id,
           },
 
           include: {
@@ -544,24 +839,33 @@ app.get(
           },
 
           orderBy: {
-            createdAt: 'desc',
+            createdAt:
+              'desc',
           },
         })
 
-      res.json(products)
+      return res.json(products)
     } catch (error) {
-      console.error(error)
+      console.error(
+        'Get brand products error:',
+        error
+      )
 
-      res.status(500).json({
-        error: 'Internal server error',
+      return res.status(500).json({
+        error:
+          'Internal server error',
       })
     }
   }
 )
 
 /* =========================
-   BRAND PRODUCTS
+   PRODUCTS - BRAND
 ========================= */
+
+/*
+ * CREATE PRODUCT
+ */
 
 app.post(
   '/api/products',
@@ -581,7 +885,8 @@ app.post(
       if (
         !name ||
         !description ||
-        price === undefined ||
+        price ===
+        undefined ||
         !category
       ) {
         return res.status(400).json({
@@ -594,67 +899,106 @@ app.post(
         Number(price)
 
       const numericStock =
-        Number(stock ?? 0)
+        Number(
+          stock ?? 0
+        )
 
       if (
-        !Number.isFinite(numericPrice) ||
+        !Number.isFinite(
+          numericPrice
+        ) ||
         numericPrice < 0
       ) {
         return res.status(400).json({
-          error: 'Invalid price',
+          error:
+            'Invalid price',
         })
       }
 
       if (
-        !Number.isInteger(numericStock) ||
+        !Number.isInteger(
+          numericStock
+        ) ||
         numericStock < 0
       ) {
         return res.status(400).json({
-          error: 'Invalid stock',
+          error:
+            'Invalid stock',
         })
       }
 
       const brand =
         await prisma.brand.findUnique({
           where: {
-            userId: req.user.userId,
+            userId:
+              req.user.userId,
           },
         })
 
       if (!brand) {
         return res.status(404).json({
-          error: 'Brand not found',
+          error:
+            'Brand not found',
         })
       }
 
       const product =
         await prisma.product.create({
           data: {
-            name: String(name).trim(),
-            description:
-              String(description).trim(),
-            price: numericPrice,
-            stock: numericStock,
-            imageUrl:
-              imageUrl || null,
-            category:
-              String(category).trim(),
+            name:
+              String(name).trim(),
 
-            // NEVER accept brandId from client
-            brandId: brand.id,
+            description:
+              String(
+                description
+              ).trim(),
+
+            price:
+              numericPrice,
+
+            stock:
+              numericStock,
+
+            imageUrl:
+              imageUrl
+                ? String(
+                  imageUrl
+                ).trim()
+                : null,
+
+            category:
+              String(
+                category
+              ).trim(),
+
+            // IMPORTANT:
+            // Never accept brandId
+            // from the frontend.
+            brandId:
+              brand.id,
           },
         })
 
-      res.status(201).json(product)
+      return res.status(201).json(
+        product
+      )
     } catch (error) {
-      console.error(error)
+      console.error(
+        'Create product error:',
+        error
+      )
 
-      res.status(500).json({
-        error: 'Internal server error',
+      return res.status(500).json({
+        error:
+          'Internal server error',
       })
     }
   }
 )
+
+/*
+ * UPDATE PRODUCT
+ */
 
 app.patch(
   '/api/products/:productId',
@@ -665,27 +1009,40 @@ app.patch(
       const brand =
         await prisma.brand.findUnique({
           where: {
-            userId: req.user.userId,
+            userId:
+              req.user.userId,
           },
         })
 
       if (!brand) {
         return res.status(404).json({
-          error: 'Brand not found',
+          error:
+            'Brand not found',
         })
       }
+
+      /*
+       * Ownership check
+       *
+       * The product must belong
+       * to the authenticated brand.
+       */
 
       const product =
         await prisma.product.findFirst({
           where: {
-            id: req.params.productId,
-            brandId: brand.id,
+            id:
+              req.params.productId,
+
+            brandId:
+              brand.id,
           },
         })
 
       if (!product) {
         return res.status(404).json({
-          error: 'Product not found',
+          error:
+            'Product not found',
         })
       }
 
@@ -700,72 +1057,149 @@ app.patch(
 
       const data: any = {}
 
-      if (name !== undefined) {
-        data.name = String(name).trim()
+      if (
+        name !== undefined
+      ) {
+        if (
+          !String(name).trim()
+        ) {
+          return res.status(400).json({
+            error:
+              'Product name cannot be empty',
+          })
+        }
+
+        data.name =
+          String(name).trim()
       }
 
-      if (description !== undefined) {
+      if (
+        description !==
+        undefined
+      ) {
+        if (
+          !String(
+            description
+          ).trim()
+        ) {
+          return res.status(400).json({
+            error:
+              'Description cannot be empty',
+          })
+        }
+
         data.description =
-          String(description).trim()
+          String(
+            description
+          ).trim()
       }
 
-      if (price !== undefined) {
-        const numericPrice = Number(price)
+      if (
+        price !== undefined
+      ) {
+        const numericPrice =
+          Number(price)
 
         if (
-          !Number.isFinite(numericPrice) ||
+          !Number.isFinite(
+            numericPrice
+          ) ||
           numericPrice < 0
         ) {
           return res.status(400).json({
-            error: 'Invalid price',
+            error:
+              'Invalid price',
           })
         }
 
-        data.price = numericPrice
+        data.price =
+          numericPrice
       }
 
-      if (stock !== undefined) {
-        const numericStock = Number(stock)
+      if (
+        stock !== undefined
+      ) {
+        const numericStock =
+          Number(stock)
 
         if (
-          !Number.isInteger(numericStock) ||
+          !Number.isInteger(
+            numericStock
+          ) ||
           numericStock < 0
         ) {
           return res.status(400).json({
-            error: 'Invalid stock',
+            error:
+              'Invalid stock',
           })
         }
 
-        data.stock = numericStock
+        data.stock =
+          numericStock
       }
 
-      if (imageUrl !== undefined) {
-        data.imageUrl = imageUrl || null
+      if (
+        imageUrl !== undefined
+      ) {
+        data.imageUrl =
+          imageUrl
+            ? String(
+              imageUrl
+            ).trim()
+            : null
       }
 
-      if (category !== undefined) {
+      if (
+        category !==
+        undefined
+      ) {
+        if (
+          !String(
+            category
+          ).trim()
+        ) {
+          return res.status(400).json({
+            error:
+              'Category cannot be empty',
+          })
+        }
+
         data.category =
-          String(category).trim()
+          String(
+            category
+          ).trim()
       }
 
       const updatedProduct =
         await prisma.product.update({
           where: {
-            id: product.id,
+            id:
+              product.id,
           },
+
           data,
         })
 
-      res.json(updatedProduct)
+      return res.json(
+        updatedProduct
+      )
     } catch (error) {
-      console.error(error)
+      console.error(
+        'Update product error:',
+        error
+      )
 
-      res.status(500).json({
-        error: 'Internal server error',
+      return res.status(500).json({
+        error:
+          'Internal server error',
       })
     }
   }
 )
+
+/*
+ * DELETE PRODUCT
+ */
 
 app.delete(
   '/api/products/:productId',
@@ -776,94 +1210,73 @@ app.delete(
       const brand =
         await prisma.brand.findUnique({
           where: {
-            userId: req.user.userId,
+            userId:
+              req.user.userId,
           },
         })
 
       if (!brand) {
         return res.status(404).json({
-          error: 'Brand not found',
+          error:
+            'Brand not found',
         })
       }
+
+      /*
+       * Ownership check
+       */
 
       const product =
         await prisma.product.findFirst({
           where: {
-            id: req.params.productId,
-            brandId: brand.id,
+            id:
+              req.params.productId,
+
+            brandId:
+              brand.id,
           },
         })
 
       if (!product) {
         return res.status(404).json({
-          error: 'Product not found',
+          error:
+            'Product not found',
         })
       }
 
       await prisma.product.delete({
         where: {
-          id: product.id,
+          id:
+            product.id,
         },
       })
 
-      res.json({
-        message: 'Product deleted successfully',
+      return res.json({
+        success: true,
+        message:
+          'Product deleted successfully',
       })
     } catch (error) {
-      console.error(error)
+      console.error(
+        'Delete product error:',
+        error
+      )
 
-      res.status(500).json({
-        error: 'Internal server error',
+      return res.status(500).json({
+        error:
+          'Internal server error',
       })
     }
   }
 )
 
 /* =========================
-   BRAND DASHBOARD
+   ADMIN - BRANDS
 ========================= */
 
-app.get(
-  '/api/brand/me',
-  authenticate,
-  requireRole('BRAND'),
-  async (req: any, res) => {
-    try {
-      const brand =
-        await prisma.brand.findUnique({
-          where: {
-            userId: req.user.userId,
-          },
-
-          include: {
-            products: {
-              orderBy: {
-                createdAt: 'desc',
-              },
-            },
-          },
-        })
-
-      if (!brand) {
-        return res.status(404).json({
-          error: 'Brand not found',
-        })
-      }
-
-      res.json(brand)
-    } catch (error) {
-      console.error(error)
-
-      res.status(500).json({
-        error: 'Internal server error',
-      })
-    }
-  }
-)
-
-/* =========================
-   ADMIN
-========================= */
+/*
+ * GET ALL BRANDS
+ */
 
 app.get(
   '/api/brands',
@@ -887,20 +1300,29 @@ app.get(
           },
 
           orderBy: {
-            createdAt: 'desc',
+            createdAt:
+              'desc',
           },
         })
 
-      res.json(brands)
+      return res.json(brands)
     } catch (error) {
-      console.error(error)
+      console.error(
+        'Get brands error:',
+        error
+      )
 
-      res.status(500).json({
-        error: 'Internal server error',
+      return res.status(500).json({
+        error:
+          'Internal server error',
       })
     }
   }
 )
+
+/*
+ * UPDATE BRAND STATUS
+ */
 
 app.patch(
   '/api/brands/:brandId/status',
@@ -919,17 +1341,36 @@ app.patch(
       ]
 
       if (
-        !allowedStatuses.includes(status)
+        !allowedStatuses.includes(
+          status
+        )
       ) {
         return res.status(400).json({
-          error: 'Invalid status',
+          error:
+            'Invalid status. Use pending, approved or rejected.',
+        })
+      }
+
+      const existingBrand =
+        await prisma.brand.findUnique({
+          where: {
+            id:
+              req.params.brandId,
+          },
+        })
+
+      if (!existingBrand) {
+        return res.status(404).json({
+          error:
+            'Brand not found',
         })
       }
 
       const brand =
         await prisma.brand.update({
           where: {
-            id: req.params.brandId,
+            id:
+              req.params.brandId,
           },
 
           data: {
@@ -937,19 +1378,33 @@ app.patch(
           },
         })
 
-      res.json(brand)
+      return res.json(
+        brand
+      )
     } catch (error) {
-      console.error(error)
+      console.error(
+        'Update brand status error:',
+        error
+      )
 
-      res.status(500).json({
-        error: 'Internal server error',
+      return res.status(500).json({
+        error:
+          'Internal server error',
       })
     }
   }
 )
 
-app.listen(PORT, () => {
-  console.log(
-    `Server running on port ${PORT}`
-  )
-})
+/* =========================
+   START SERVER
+========================= */
+
+app.listen(
+  PORT,
+  () => {
+    console.log(
+      `VAA API running on port ${PORT}`
+    )
+  }
+)
+
