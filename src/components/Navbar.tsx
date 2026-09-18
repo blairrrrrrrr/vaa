@@ -1,35 +1,41 @@
-import { Link, useNavigate } from 'react-router-dom'
-import { useState, useEffect, useRef } from 'react'
-import { Button } from './ui/button'
 import {
-  Moon,
-  Sun,
-  Menu,
-  X,
-  LogOut,
-  User,
+  useEffect,
+  useRef,
+  useState,
+} from 'react'
+import {
   ChevronDown,
   LayoutDashboard,
+  LogOut,
+  Menu,
+  Moon,
+  ShoppingCart,
+  Sun,
+  User,
+  X,
 } from 'lucide-react'
-import { useTheme } from '../context/ThemeContext'
+import { Link, useNavigate } from 'react-router-dom'
+
 import { useAuth } from '../context/AuthContext'
+import { useTheme } from '../context/ThemeContext'
+import { useCart } from '../context/CartContext'
 
 export default function Navbar() {
-  const { theme, toggleTheme } = useTheme()
   const { user, signOut } = useAuth()
+  const { theme, toggleTheme } = useTheme()
+  const { itemCount } = useCart()
 
-  const [mobileMenuOpen, setMobileMenuOpen] =
-    useState(false)
+  const navigate = useNavigate()
 
   const [dropdownOpen, setDropdownOpen] =
+    useState(false)
+
+  const [mobileMenuOpen, setMobileMenuOpen] =
     useState(false)
 
   const dropdownRef =
     useRef<HTMLDivElement>(null)
 
-  const navigate = useNavigate()
-
-  // close dropdown on outside click
   useEffect(() => {
     const handleClickOutside = (
       event: MouseEvent
@@ -59,558 +65,396 @@ export default function Navbar() {
 
   const handleSignOut = () => {
     signOut()
-
     setDropdownOpen(false)
     setMobileMenuOpen(false)
-
-    navigate('/auth/signin', {
-      replace: true,
-    })
+    navigate('/')
   }
 
-  const getDashboardPath = () => {
-    if (!user) {
-      return '/auth/signin'
-    }
-
-    if (user.role === 'ADMIN') {
-      return '/admin/dashboard'
-    }
-
-    if (user.role === 'BRAND') {
-      return '/brand/dashboard'
-    }
-
-    return '/shop'
+  const handleMobileNavigation = () => {
+    setMobileMenuOpen(false)
+    setDropdownOpen(false)
   }
 
   return (
-    <nav
-      className="navbar navbar-expand-lg border-bottom sticky-top"
-      style={{
-        zIndex: 50,
-        backgroundColor:
-          'hsl(var(--background))',
-        color:
-          'hsl(var(--foreground))',
-      }}
-    >
+    <nav className="navbar navbar-expand-lg bg-white border-bottom sticky-top">
       <div className="container">
-        {/* logo */}
-
+        {/* Logo */}
         <Link
           to="/"
-          className="navbar-brand fw-bold"
-          onClick={() => {
-            setDropdownOpen(false)
-            setMobileMenuOpen(false)
-          }}
+          className="navbar-brand d-flex align-items-center"
+          onClick={handleMobileNavigation}
         >
           <img
             src="/vaa-01.png"
-            alt="VAA Logo"
+            alt="VAA"
             style={{
-              width: '75px',
-              height: '75px',
-              objectFit: 'contain',
+              height: '42px',
+              width: 'auto',
             }}
           />
         </Link>
 
         {/* Desktop Navigation */}
-
-        <div className="d-none d-md-flex align-items-center gap-3 ms-auto">
-          {/* SHOP */}
-
+        <div className="d-none d-lg-flex align-items-center ms-auto gap-2">
           <Link
             to="/shop"
-            className="text-decoration-none"
-            style={{
-              color:
-                'hsl(var(--foreground))',
-            }}
+            className="btn btn-link text-decoration-none text-dark"
           >
             Shop
           </Link>
 
-          {/* sell */}
+          {user?.role !== 'BRAND' && (
+            <Link
+              to="/auth/brand-signup"
+              className="btn btn-link text-decoration-none text-dark"
+            >
+              Sell
+            </Link>
+          )}
 
-          {(!user ||
-            (user.role !== 'BRAND' &&
-              user.role !== 'ADMIN')) && (
-              <Link
-                to="/auth/brand-signup"
-                className="text-decoration-none"
+          {/* Cart */}
+          <Link
+            to="/cart"
+            className="btn btn-link text-dark position-relative p-2 d-flex align-items-center justify-content-center"
+            aria-label={`Shopping cart with ${itemCount} ${
+              itemCount === 1 ? 'item' : 'items'
+            }`}
+          >
+            <ShoppingCart size={21} />
+
+            {itemCount > 0 && (
+              <span
+                className="position-absolute badge rounded-pill bg-danger"
                 style={{
-                  color:
-                    'hsl(var(--foreground))',
+                  top: '0px',
+                  right: '-2px',
+                  fontSize: '10px',
+                  minWidth: '18px',
+                  height: '18px',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  padding: '0 4px',
                 }}
               >
-                Sell
-              </Link>
+                {itemCount > 99 ? '99+' : itemCount}
+              </span>
             )}
+          </Link>
 
           {/* Theme */}
-
-          <Button
-            variant="ghost"
-            size="icon"
+          <button
+            type="button"
+            className="btn btn-link text-dark p-2"
             onClick={toggleTheme}
             aria-label="Toggle theme"
           >
-            {theme === 'light' ? (
-              <Moon
-                style={{
-                  width: '20px',
-                  height: '20px',
-                }}
-              />
+            {theme === 'dark' ? (
+              <Sun size={20} />
             ) : (
-              <Sun
-                style={{
-                  width: '20px',
-                  height: '20px',
-                }}
-              />
+              <Moon size={20} />
             )}
-          </Button>
+          </button>
 
-          {/* User Auth */}
-
+          {/* User Dropdown */}
           {user ? (
             <div
               className="position-relative"
               ref={dropdownRef}
             >
-              {/* dropdown */}
-
-              <Button
-                variant="ghost"
+              <button
+                type="button"
+                className="btn btn-link text-dark text-decoration-none d-flex align-items-center gap-2"
                 onClick={() =>
                   setDropdownOpen(
-                    (previous) =>
-                      !previous
+                    current => !current
                   )
                 }
-                aria-expanded={
-                  dropdownOpen
-                }
-                aria-haspopup="menu"
-                className="d-flex align-items-center gap-2"
               >
-                <User
-                  style={{
-                    width: '19px',
-                    height: '19px',
-                  }}
-                />
+                <User size={19} />
 
-                <span>
+                <span className="fw-medium">
                   {user.name ||
-                    user.email.split(
-                      '@'
-                    )[0]}
+                    user.email.split('@')[0]}
                 </span>
 
                 <ChevronDown
+                  size={16}
                   style={{
-                    width: '16px',
-                    height: '16px',
-                    transform:
-                      dropdownOpen
-                        ? 'rotate(180deg)'
-                        : 'rotate(0deg)',
+                    transform: dropdownOpen
+                      ? 'rotate(180deg)'
+                      : 'rotate(0deg)',
                     transition:
                       'transform 0.2s ease',
                   }}
                 />
-              </Button>
-
-              {/* dropdown */}
+              </button>
 
               {dropdownOpen && (
                 <div
-                  className="position-absolute end-0 mt-2 shadow rounded border"
-                  role="menu"
+                  className="position-absolute end-0 mt-2 bg-white border rounded-3 shadow-lg overflow-hidden"
                   style={{
                     minWidth: '220px',
-                    backgroundColor:
-                      'hsl(var(--background))',
-                    color:
-                      'hsl(var(--foreground))',
-                    zIndex: 1000,
-                    overflow: 'hidden',
+                    zIndex: 1050,
                   }}
                 >
-                  {/* user info */}
-
-                  <div
-                    className="px-3 py-3 border-bottom"
-                  >
-                    <div
-                      className="fw-semibold"
-                    >
+                  <div className="px-3 py-3 border-bottom">
+                    <p className="fw-semibold mb-1">
                       {user.name ||
-                        'VAA User'}
-                    </div>
+                        user.email.split('@')[0]}
+                    </p>
 
-                    <div
-                      className="small text-secondary text-truncate"
+                    <p
+                      className="small text-secondary mb-0 text-truncate"
+                      style={{
+                        maxWidth: '190px',
+                      }}
                     >
                       {user.email}
-                    </div>
-
-                    <div
-                      className="small mt-1 text-uppercase"
-                      style={{
-                        letterSpacing:
-                          '0.05em',
-                      }}
-                    >
-                      {user.role}
-                    </div>
+                    </p>
                   </div>
 
-                  {/* dashboard */}
-
-                  <Link
-                    to={getDashboardPath()}
-                    className="text-decoration-none d-flex align-items-center gap-2 px-3 py-2"
-                    style={{
-                      color:
-                        'hsl(var(--foreground))',
-                    }}
-                    role="menuitem"
-                    onClick={() =>
-                      setDropdownOpen(
-                        false
-                      )
-                    }
-                  >
-                    <LayoutDashboard
-                      style={{
-                        width: '18px',
-                        height: '18px',
-                      }}
-                    />
-
-                    Dashboard
-                  </Link>
-
-                  {/* shop*/}
-
-                  <Link
-                    to="/shop"
-                    className="text-decoration-none d-flex align-items-center gap-2 px-3 py-2"
-                    style={{
-                      color:
-                        'hsl(var(--foreground))',
-                    }}
-                    role="menuitem"
-                    onClick={() =>
-                      setDropdownOpen(
-                        false
-                      )
-                    }
-                  >
-                    Shop
-                  </Link>
-
-                  {/* sign out */}
-
-                  <div className="border-top">
-                    <button
-                      type="button"
-                      className="w-100 border-0 bg-transparent d-flex align-items-center gap-2 px-3 py-2 text-start"
-                      style={{
-                        color:
-                          'hsl(var(--foreground))',
-                      }}
-                      role="menuitem"
-                      onClick={
-                        handleSignOut
+                  {user.role === 'BRAND' ? (
+                    <Link
+                      to="/brand/dashboard"
+                      className="dropdown-item d-flex align-items-center gap-2 py-2"
+                      onClick={() =>
+                        setDropdownOpen(false)
                       }
                     >
-                      <LogOut
-                        style={{
-                          width: '18px',
-                          height: '18px',
-                        }}
-                      />
+                      <LayoutDashboard size={17} />
+                      Brand Dashboard
+                    </Link>
+                  ) : user.role === 'ADMIN' ? (
+                    <Link
+                      to="/admin/dashboard"
+                      className="dropdown-item d-flex align-items-center gap-2 py-2"
+                      onClick={() =>
+                        setDropdownOpen(false)
+                      }
+                    >
+                      <LayoutDashboard size={17} />
+                      Admin Dashboard
+                    </Link>
+                  ) : (
+                    <Link
+                      to="/shop"
+                      className="dropdown-item d-flex align-items-center gap-2 py-2"
+                      onClick={() =>
+                        setDropdownOpen(false)
+                      }
+                    >
+                      <ShoppingCart size={17} />
+                      Shop
+                    </Link>
+                  )}
 
-                      Sign Out
-                    </button>
-                  </div>
+                  <button
+                    type="button"
+                    className="dropdown-item d-flex align-items-center gap-2 py-2 text-danger"
+                    onClick={handleSignOut}
+                  >
+                    <LogOut size={17} />
+                    Sign Out
+                  </button>
                 </div>
               )}
             </div>
           ) : (
             <>
-              {/* sign in */}
-
               <Link
                 to="/auth/signin"
-                className="text-decoration-none"
+                className="btn btn-outline-dark"
               >
-                <Button
-                  variant="ghost"
-                  style={{
-                    background:
-                      'linear-gradient(to right, #db8727, #ef6f0f)',
-                    border: 'none',
-                    color: 'white',
-                  }}
-                >
-                  Sign In
-                </Button>
+                Sign In
               </Link>
-
-              {/* sign up */}
 
               <Link
                 to="/auth/signup"
-                className="text-decoration-none"
+                className="btn text-white"
+                style={{
+                  background:
+                    'linear-gradient(to right, #db8727, #ef6f0f)',
+                  border: 'none',
+                }}
               >
-                <Button
-                  style={{
-                    background:
-                      'linear-gradient(to right, #db8727, #ef6f0f)',
-                    border: 'none',
-                    color: 'white',
-                  }}
-                >
-                  Sign Up
-                </Button>
+                Sign Up
               </Link>
             </>
           )}
         </div>
 
-     {/* mobile */}
+        {/* Mobile Controls */}
+        <div className="d-flex d-lg-none align-items-center gap-1 ms-auto">
+          {/* Mobile Cart */}
+          <Link
+            to="/cart"
+            className="btn btn-link text-dark position-relative p-2"
+            aria-label="Shopping cart"
+          >
+            <ShoppingCart size={21} />
 
-        <div className="d-md-none d-flex align-items-center gap-2 ms-auto">
-          <Button
-            variant="ghost"
-            size="icon"
+            {itemCount > 0 && (
+              <span
+                className="position-absolute badge rounded-pill bg-danger"
+                style={{
+                  top: '0px',
+                  right: '-1px',
+                  fontSize: '9px',
+                  minWidth: '17px',
+                  height: '17px',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  padding: '0 3px',
+                }}
+              >
+                {itemCount > 99 ? '99+' : itemCount}
+              </span>
+            )}
+          </Link>
+
+          <button
+            type="button"
+            className="btn btn-link text-dark p-2"
             onClick={toggleTheme}
             aria-label="Toggle theme"
           >
-            {theme === 'light' ? (
-              <Moon
-                style={{
-                  width: '20px',
-                  height: '20px',
-                }}
-              />
+            {theme === 'dark' ? (
+              <Sun size={20} />
             ) : (
-              <Sun
-                style={{
-                  width: '20px',
-                  height: '20px',
-                }}
-              />
+              <Moon size={20} />
             )}
-          </Button>
+          </button>
 
-          <Button
-            variant="ghost"
-            size="icon"
+          <button
+            type="button"
+            className="btn btn-link text-dark p-2"
             onClick={() =>
               setMobileMenuOpen(
-                (previous) =>
-                  !previous
+                current => !current
               )
             }
-            aria-label="Toggle menu"
+            aria-label="Toggle navigation"
           >
             {mobileMenuOpen ? (
-              <X
-                style={{
-                  width: '24px',
-                  height: '24px',
-                }}
-              />
+              <X size={24} />
             ) : (
-              <Menu
-                style={{
-                  width: '24px',
-                  height: '24px',
-                }}
-              />
+              <Menu size={24} />
             )}
-          </Button>
+          </button>
         </div>
       </div>
 
-      {/* mobile menu */}
-
+      {/* Mobile Menu */}
       {mobileMenuOpen && (
-        <div
-          className="d-md-none border-top w-100 px-4 py-4"
-          style={{
-            backgroundColor:
-              'hsl(var(--background))',
-            color:
-              'hsl(var(--foreground))',
-          }}
-        >
-          <div className="d-flex flex-column gap-3">
-            {/* shop */}
+        <div className="d-lg-none border-top bg-white">
+          <div className="container py-3">
+            <div className="d-flex flex-column gap-2">
+              <Link
+                to="/shop"
+                className="btn btn-light text-start"
+                onClick={handleMobileNavigation}
+              >
+                Shop
+              </Link>
 
-            <Link
-              to="/shop"
-              className="text-decoration-none"
-              style={{
-                color:
-                  'hsl(var(--foreground))',
-              }}
-              onClick={() =>
-                setMobileMenuOpen(false)
-              }
-            >
-              Shop
-            </Link>
-
-            {/* sell */}
-
-            {(!user ||
-              (user.role !== 'BRAND' &&
-                user.role !== 'ADMIN')) && (
+              {user?.role !== 'BRAND' && (
                 <Link
                   to="/auth/brand-signup"
-                  className="text-decoration-none"
-                  style={{
-                    color:
-                      'hsl(var(--foreground))',
-                  }}
-                  onClick={() =>
-                    setMobileMenuOpen(false)
-                  }
+                  className="btn btn-light text-start"
+                  onClick={handleMobileNavigation}
                 >
-                  Sell
+                  Sell on VAA
                 </Link>
               )}
 
-            {user ? (
-              <>
-                {/* account info */}
+              <Link
+                to="/cart"
+                className="btn btn-light text-start d-flex align-items-center justify-content-between"
+                onClick={handleMobileNavigation}
+              >
+                <span className="d-flex align-items-center gap-2">
+                  <ShoppingCart size={18} />
+                  Cart
+                </span>
 
-                <div className="border-top pt-3">
-                  <div className="small text-secondary">
-                    Signed in as
+                {itemCount > 0 && (
+                  <span className="badge bg-danger rounded-pill">
+                    {itemCount}
+                  </span>
+                )}
+              </Link>
+
+              {user ? (
+                <>
+                  <hr className="my-2" />
+
+                  <div className="px-2">
+                    <p className="fw-semibold mb-1">
+                      {user.name ||
+                        user.email.split('@')[0]}
+                    </p>
+
+                    <p className="small text-secondary mb-2">
+                      {user.email}
+                    </p>
                   </div>
 
-                  <div className="fw-semibold">
-                    {user.name ||
-                      user.email}
-                  </div>
+                  {user.role === 'BRAND' ? (
+                    <Link
+                      to="/brand/dashboard"
+                      className="btn btn-light text-start d-flex align-items-center gap-2"
+                      onClick={handleMobileNavigation}
+                    >
+                      <LayoutDashboard size={18} />
+                      Brand Dashboard
+                    </Link>
+                  ) : user.role === 'ADMIN' ? (
+                    <Link
+                      to="/admin/dashboard"
+                      className="btn btn-light text-start d-flex align-items-center gap-2"
+                      onClick={handleMobileNavigation}
+                    >
+                      <LayoutDashboard size={18} />
+                      Admin Dashboard
+                    </Link>
+                  ) : null}
 
-                  <div className="small text-secondary">
-                    {user.role}
-                  </div>
-                </div>
-
-                {/* dashboard */}
-
-                <Link
-                  to={getDashboardPath()}
-                  className="text-decoration-none"
-                  onClick={() =>
-                    setMobileMenuOpen(
-                      false
-                    )
-                  }
-                >
-                  <Button
-                    variant="ghost"
-                    className="w-100"
+                  <button
+                    type="button"
+                    className="btn btn-light text-danger text-start d-flex align-items-center gap-2"
+                    onClick={handleSignOut}
                   >
-                    <LayoutDashboard
-                      style={{
-                        width: '18px',
-                        height: '18px',
-                        marginRight:
-                          '6px',
-                      }}
-                    />
-
-                    Dashboard
-                  </Button>
-                </Link>
-
-                {/* sign out */}
-
-                <Button
-                  variant="ghost"
-                  className="w-100"
-                  onClick={
-                    handleSignOut
-                  }
-                >
-                  <LogOut
-                    style={{
-                      width: '18px',
-                      height: '18px',
-                      marginRight:
-                        '6px',
-                    }}
-                  />
-
-                  Sign Out
-                </Button>
-              </>
-            ) : (
-              <>
-                {/* sign in */}
-
-                <Link
-                  to="/auth/signin"
-                  className="text-decoration-none"
-                  onClick={() =>
-                    setMobileMenuOpen(
-                      false
-                    )
-                  }
-                >
-                  <Button
-                    variant="ghost"
-                    className="w-100"
-                    style={{
-                      background:
-                        'linear-gradient(to right, #db8727, #ef6f0f)',
-                      border: 'none',
-                      color: 'white',
-                    }}
+                    <LogOut size={18} />
+                    Sign Out
+                  </button>
+                </>
+              ) : (
+                <>
+                  <Link
+                    to="/auth/signin"
+                    className="btn btn-outline-primary"
+                    onClick={handleMobileNavigation}
                   >
                     Sign In
-                  </Button>
-                </Link>
+                  </Link>
 
-                {/* sign up */}
-
-                <Link
-                  to="/auth/signup"
-                  className="text-decoration-none"
-                  onClick={() =>
-                    setMobileMenuOpen(
-                      false
-                    )
-                  }
-                >
-                  <Button
-                    className="w-100"
+                  <Link
+                    to="/auth/signup"
+                    className="btn text-white"
                     style={{
                       background:
                         'linear-gradient(to right, #db8727, #ef6f0f)',
                       border: 'none',
-                      color: 'white',
                     }}
+                    onClick={handleMobileNavigation}
                   >
                     Sign Up
-                  </Button>
-                </Link>
-              </>
-            )}
+                  </Link>
+                </>
+              )}
+            </div>
           </div>
         </div>
       )}

@@ -96,6 +96,12 @@ export default function SignUp() {
               Already have an account? Sign in
             </Link>
           </div>
+          <div className="text-center mt-2 small">
+                        Want to sell on VAA?{' '}
+                        <Link to="/auth/brand-signup">
+                          Register your brand
+                        </Link>
+                      </div>
         </CardContent>
       </Card>
       </div>

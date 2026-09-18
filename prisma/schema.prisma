@@ -36,6 +36,7 @@ model User {
   brand         Brand?
   orders        Order[]
   favorites     Favorite[]
+  brandFollows BrandFollow[]
   
   @@index([email])
 }
@@ -52,6 +53,7 @@ model Brand {
   updatedAt   DateTime  @updatedAt
   
   products    Product[]
+  followers BrandFollow[]
   
   @@index([userId])
 }
@@ -115,4 +117,18 @@ model Favorite {
   @@unique([userId, productId])
   @@index([userId])
   @@index([productId])
+}
+
+model BrandFollow {
+  id        String   @id @default(cuid())
+  userId    String
+  brandId   String
+  createdAt DateTime @default(now())
+
+  user  User  @relation(fields: [userId], references: [id], onDelete: Cascade)
+  brand Brand @relation(fields: [brandId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, brandId])
+  @@index([userId])
+  @@index([brandId])
 }
