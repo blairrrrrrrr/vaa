@@ -4,6 +4,8 @@ import { Card, CardContent } from '../components/ui/card'
 import { Input } from '../components/ui/input'
 import Navbar from '../components/Navbar'
 import { Search, ShoppingCart, Heart, SlidersHorizontal, ArrowUpDown, Star } from 'lucide-react'
+import { useCart } from '../context/CartContext'
+import { Link } from 'react-router-dom'
 
 const API_URL = 'http://localhost:3001'
 
@@ -15,6 +17,7 @@ export default function Shop() {
   const [sortBy, setSortBy] = useState('newest')
   const [priceRange, setPriceRange] = useState('all')
   const [favorites, setFavorites] = useState<Set<string>>(new Set())
+  const { addToCart, isInCart } = useCart()
 
   const categories = ['All', 'Dresses', 'Outerwear', 'Pants', 'Accessories', 'Shoes']
 
@@ -37,15 +40,15 @@ export default function Shop() {
 
   const filteredProducts = products.filter((product: any) => {
     const matchesSearch = product.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-                          product.brand?.name?.toLowerCase().includes(searchQuery.toLowerCase())
+      product.brand?.name?.toLowerCase().includes(searchQuery.toLowerCase())
     const matchesCategory = selectedCategory === 'All' || product.category === selectedCategory
-    
+
     let matchesPrice = true
     if (priceRange === 'under-50') matchesPrice = product.price < 50
     else if (priceRange === '50-100') matchesPrice = product.price >= 50 && product.price < 100
     else if (priceRange === '100-200') matchesPrice = product.price >= 100 && product.price < 200
     else if (priceRange === '200+') matchesPrice = product.price >= 200
-    
+
     return matchesSearch && matchesCategory && matchesPrice
   })
 
@@ -173,9 +176,8 @@ export default function Shop() {
                   <Button
                     variant="ghost"
                     size="icon"
-                    className={`position-absolute top-0 end-0 m-2 bg-white bg-opacity-90 ${
-                      favorites.has(product.id) ? 'text-danger' : ''
-                    }`}
+                    className={`position-absolute top-0 end-0 m-2 bg-white bg-opacity-90 ${favorites.has(product.id) ? 'text-danger' : ''
+                      }`}
                     style={{ width: '36px', height: '36px' }}
                     onClick={() => toggleFavorite(product.id)}
                   >
@@ -184,7 +186,14 @@ export default function Shop() {
                 </div>
                 <CardContent className="p-3">
                   <p className="small text-primary fw-medium mb-1">{product.brand?.name || 'Unknown Brand'}</p>
-                  <h3 className="fw-semibold fs-5 mb-2 text-truncate">{product.name}</h3>
+                  <Link
+                    to={`/product/${product.id}`}
+                    className="text-decoration-none text-dark"
+                  >
+                    <h3 className="fw-semibold fs-5 mb-2 text-truncate">
+                      {product.name}
+                    </h3>
+                  </Link>
                   <p className="small text-secondary mb-3 text-truncate" style={{ display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>{product.description}</p>
                   {/* <div className="d-flex align-items-center gap-1 mb-3">
                     {[...Array(5)].map((_, i) => (
@@ -202,12 +211,43 @@ export default function Shop() {
                   </div>
                 </CardContent>
                 <div className="p-3 pt-0">
-                  <Button 
+                  <Button
                     className="w-100 gap-2"
-                    style={{ background: 'linear-gradient(to right, #db8727, #ef6f0f)', border: 'none', color: 'white' }}
+                    disabled={product.stock <= 0}
+                    onClick={() =>
+                      addToCart({
+                        id: product.id,
+                        name: product.name,
+                        price: product.price,
+                        imageUrl: product.imageUrl,
+                        category: product.category,
+                        brandId: product.brandId,
+                        brandName:
+                          product.brand?.name || 'Unknown Brand',
+                        stock: product.stock,
+                      })
+                    }
+                    style={{
+                      background:
+                        isInCart(product.id)
+                          ? '#198754'
+                          : 'linear-gradient(to right, #db8727, #ef6f0f)',
+                      border: 'none',
+                      color: 'white',
+                    }}
                   >
-                    <ShoppingCart style={{ width: '16px', height: '16px' }} />
-                    Add to Cart
+                    <ShoppingCart
+                      style={{
+                        width: '16px',
+                        height: '16px',
+                      }}
+                    />
+
+                    {product.stock <= 0
+                      ? 'Out of Stock'
+                      : isInCart(product.id)
+                        ? 'Added to Cart'
+                        : 'Add to Cart'}
                   </Button>
                 </div>
               </Card>
@@ -239,8 +279,8 @@ export default function Shop() {
             Subscribe to get notified about new arrivals, exclusive deals, and fashion tips
           </p>
           <div className="d-flex mx-auto gap-2" style={{ maxWidth: '400px' }}>
-            <Input 
-              placeholder="Enter your email" 
+            <Input
+              placeholder="Enter your email"
               className="bg-white bg-opacity-10 text-white"
               style={{ borderColor: 'rgba(255,255,255,0.3)' }}
             />

@@ -163,7 +163,7 @@ export default function Home() {
               It's not only a shopping platform but connects you to your favorite brands and communities
             </p>
           </div>
-          <div className="row row-cols-md- g-4">
+          <div className="row row-cols g-4">
             <div className="col">
               <Card className="border-2">
                 <CardHeader>
@@ -172,7 +172,7 @@ export default function Home() {
                   </div>
                   <CardTitle className="fs-4">For Customers</CardTitle>
                   <CardDescription className="text-base">
-                    Browse and shop from curated fashion brands worldwide. Find unique pieces that match your style.
+                    Browse and shop from curated fashion brands countrywide. Find unique pieces that match your style.
                   </CardDescription>
                 </CardHeader>
                 <CardContent>
@@ -323,7 +323,7 @@ export default function Home() {
             </div>
           </div>
           <div className="border-top border-secondary pt-4 text-center text-secondary">
-            <p>&copy; 2026 FashionHub. All rights reserved.</p>
+            <p>&copy; 2026 Vaa. All rights reserved.</p>
           </div>
         </div>
       </footer>

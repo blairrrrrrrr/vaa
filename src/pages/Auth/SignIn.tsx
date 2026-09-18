@@ -111,12 +111,12 @@ export default function SignIn() {
               </Link>
             </div>
 
-            <div className="text-center mt-2 small">
+            {/* <div className="text-center mt-2 small">
               Want to sell on VAA?{' '}
               <Link to="/auth/brand-signup">
                 Register your brand
               </Link>
-            </div>
+            </div> */}
           </CardContent>
         </Card>
       </div>

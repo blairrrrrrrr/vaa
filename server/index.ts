@@ -1,4 +1,3 @@
-
 import express from 'express'
 import cors from 'cors'
 import bcrypt from 'bcryptjs'
@@ -18,7 +17,6 @@ if (!JWT_SECRET) {
   )
 }
 
-
 app.use(
   cors({
     origin: CLIENT_URL,
@@ -27,8 +25,6 @@ app.use(
 )
 
 app.use(express.json())
-
-
 
 type UserRole =
   | 'CUSTOMER'
@@ -39,8 +35,6 @@ interface AuthUser {
   userId: string
   role: UserRole
 }
-
-
 
 const generateToken = (
   userId: string,
@@ -128,6 +122,9 @@ const requireRole = (
 }
 
 
+/* =========================
+   HEALTH
+========================= */
 
 app.get('/api/health', (_req, res) => {
   res.json({
@@ -136,6 +133,10 @@ app.get('/api/health', (_req, res) => {
   })
 })
 
+
+/* =========================
+   CUSTOMER SIGN UP
+========================= */
 
 app.post(
   '/api/auth/signup',
@@ -234,9 +235,10 @@ app.post(
   }
 )
 
-/*
- * BRAND SIGN UP
- */
+
+/* =========================
+   BRAND SIGN UP
+========================= */
 
 app.post(
   '/api/auth/brand-signup',
@@ -315,12 +317,14 @@ app.post(
                   String(
                     brandName
                   ).trim(),
+
                 category:
                   category
                     ? String(
                       category
                     ).trim()
                     : null,
+
                 status: 'pending',
               },
             },
@@ -363,9 +367,10 @@ app.post(
   }
 )
 
-/*
- * SIGN IN
- */
+
+/* =========================
+   SIGN IN
+========================= */
 
 app.post(
   '/api/auth/signin',
@@ -461,9 +466,10 @@ app.post(
   }
 )
 
-/*
- * ADMIN SIGN IN
- */
+
+/* =========================
+   ADMIN SIGN IN
+========================= */
 
 app.post(
   '/api/auth/admin-signin',
@@ -546,9 +552,10 @@ app.post(
   }
 )
 
-/*
- * CURRENT USER
- */
+
+/* =========================
+   CURRENT USER
+========================= */
 
 app.get(
   '/api/auth/me',
@@ -592,12 +599,9 @@ app.get(
 )
 
 
-/*
- * GET LOGGED-IN BRAND
- *
- * This is the endpoint used by
- * Brand/Dashboard.tsx
- */
+/* =========================
+   LOGGED-IN BRAND
+========================= */
 
 app.get(
   '/api/brand/me',
@@ -667,10 +671,9 @@ app.get(
 )
 
 
-
-/*
- * GET ALL PRODUCTS
- */
+/* =========================
+   ALL PUBLIC PRODUCTS
+========================= */
 
 app.get(
   '/api/products',
@@ -717,9 +720,107 @@ app.get(
   }
 )
 
-/*
- * GET SINGLE PRODUCT
- */
+
+/* =========================
+   BRAND STOREFRONT
+   IMPORTANT:
+   THIS MUST COME BEFORE
+   /api/products/:productId
+========================= */
+
+app.get(
+  '/api/products/brand/:brandId',
+  async (req, res) => {
+    try {
+      const brand =
+        await prisma.brand.findUnique({
+          where: {
+            id:
+              req.params.brandId,
+          },
+
+          select: {
+            id: true,
+            name: true,
+            description: true,
+            category: true,
+            status: true,
+            createdAt: true,
+
+            products: {
+              orderBy: {
+                createdAt:
+                  'desc',
+              },
+
+              select: {
+                id: true,
+                name: true,
+                description: true,
+                price: true,
+                stock: true,
+                imageUrl: true,
+                category: true,
+                brandId: true,
+                createdAt: true,
+                updatedAt: true,
+              },
+            },
+
+            _count: {
+              select: {
+                followers: true,
+              },
+            },
+          },
+        })
+
+      if (
+        !brand ||
+        brand.status !== 'approved'
+      ) {
+        return res.status(404).json({
+          error:
+            'Brand not found',
+        })
+      }
+
+      return res.json({
+        id: brand.id,
+        name: brand.name,
+        description:
+          brand.description,
+        category:
+          brand.category,
+        status:
+          brand.status,
+        createdAt:
+          brand.createdAt,
+
+        followersCount:
+          brand._count.followers,
+
+        products:
+          brand.products,
+      })
+    } catch (error) {
+      console.error(
+        'Get brand storefront error:',
+        error
+      )
+
+      return res.status(500).json({
+        error:
+          'Internal server error',
+      })
+    }
+  }
+)
+
+
+/* =========================
+   SINGLE PRODUCT
+========================= */
 
 app.get(
   '/api/products/:productId',
@@ -771,77 +872,10 @@ app.get(
   }
 )
 
-/*
- * GET PRODUCTS BY BRAND
- */
 
-app.get(
-  '/api/products/brand/:brandId',
-  async (req, res) => {
-    try {
-      const brand =
-        await prisma.brand.findUnique({
-          where: {
-            id:
-              req.params.brandId,
-          },
-        })
-
-      if (
-        !brand ||
-        brand.status !==
-        'approved'
-      ) {
-        return res.status(404).json({
-          error:
-            'Brand not found',
-        })
-      }
-
-      const products =
-        await prisma.product.findMany({
-          where: {
-            brandId:
-              brand.id,
-          },
-
-          include: {
-            brand: {
-              select: {
-                id: true,
-                name: true,
-                description: true,
-                category: true,
-                status: true,
-              },
-            },
-          },
-
-          orderBy: {
-            createdAt:
-              'desc',
-          },
-        })
-
-      return res.json(products)
-    } catch (error) {
-      console.error(
-        'Get brand products error:',
-        error
-      )
-
-      return res.status(500).json({
-        error:
-          'Internal server error',
-      })
-    }
-  }
-)
-
-
-/*
- * CREATE PRODUCT
- */
+/* =========================
+   CREATE PRODUCT
+========================= */
 
 app.post(
   '/api/products',
@@ -861,8 +895,7 @@ app.post(
       if (
         !name ||
         !description ||
-        price ===
-        undefined ||
+        price === undefined ||
         !category
       ) {
         return res.status(400).json({
@@ -875,9 +908,7 @@ app.post(
         Number(price)
 
       const numericStock =
-        Number(
-          stock ?? 0
-        )
+        Number(stock ?? 0)
 
       if (
         !Number.isFinite(
@@ -947,9 +978,6 @@ app.post(
                 category
               ).trim(),
 
-            // IMPORTANT:
-            // Never accept brandId
-            // from the frontend.
             brandId:
               brand.id,
           },
@@ -972,9 +1000,10 @@ app.post(
   }
 )
 
-/*
- * UPDATE PRODUCT
- */
+
+/* =========================
+   UPDATE PRODUCT
+========================= */
 
 app.patch(
   '/api/products/:productId',
@@ -996,13 +1025,6 @@ app.patch(
             'Brand not found',
         })
       }
-
-      /*
-       * Ownership check
-       *
-       * The product must belong
-       * to the authenticated brand.
-       */
 
       const product =
         await prisma.product.findFirst({
@@ -1033,9 +1055,7 @@ app.patch(
 
       const data: any = {}
 
-      if (
-        name !== undefined
-      ) {
+      if (name !== undefined) {
         if (
           !String(name).trim()
         ) {
@@ -1070,9 +1090,7 @@ app.patch(
           ).trim()
       }
 
-      if (
-        price !== undefined
-      ) {
+      if (price !== undefined) {
         const numericPrice =
           Number(price)
 
@@ -1092,9 +1110,7 @@ app.patch(
           numericPrice
       }
 
-      if (
-        stock !== undefined
-      ) {
+      if (stock !== undefined) {
         const numericStock =
           Number(stock)
 
@@ -1115,7 +1131,8 @@ app.patch(
       }
 
       if (
-        imageUrl !== undefined
+        imageUrl !==
+        undefined
       ) {
         data.imageUrl =
           imageUrl
@@ -1173,9 +1190,10 @@ app.patch(
   }
 )
 
-/*
- * DELETE PRODUCT
- */
+
+/* =========================
+   DELETE PRODUCT
+========================= */
 
 app.delete(
   '/api/products/:productId',
@@ -1197,10 +1215,6 @@ app.delete(
             'Brand not found',
         })
       }
-
-      /*
-       * Ownership check
-       */
 
       const product =
         await prisma.product.findFirst({
@@ -1247,10 +1261,9 @@ app.delete(
 )
 
 
-/*
- * GET APPROVED BRANDS (PUBLIC)
- * For homepage display
- */
+/* =========================
+   PUBLIC BRANDS
+========================= */
 
 app.get(
   '/api/brands/public',
@@ -1267,11 +1280,11 @@ app.get(
             name: true,
             description: true,
             category: true,
-            imageUrl: true,
           },
 
           orderBy: {
-            createdAt: 'desc',
+            createdAt:
+              'desc',
           },
         })
 
@@ -1291,10 +1304,157 @@ app.get(
 )
 
 
+/* =========================
+   FOLLOW BRAND
+========================= */
 
-/*
- * GET ALL BRANDS
- */
+app.get(
+  '/api/brands/:brandId/follow',
+  authenticate,
+  requireRole('CUSTOMER'),
+  async (req: any, res) => {
+    try {
+      const follow =
+        await prisma.brandFollow.findUnique({
+          where: {
+            userId_brandId: {
+              userId:
+                req.user.userId,
+
+              brandId:
+                req.params.brandId,
+            },
+          },
+        })
+
+      return res.json({
+        following:
+          !!follow,
+      })
+    } catch (error) {
+      console.error(
+        'Check follow error:',
+        error
+      )
+
+      return res.status(500).json({
+        error:
+          'Internal server error',
+      })
+    }
+  }
+)
+
+
+/* =========================
+   FOLLOW BRAND
+========================= */
+
+app.post(
+  '/api/brands/:brandId/follow',
+  authenticate,
+  requireRole('CUSTOMER'),
+  async (req: any, res) => {
+    try {
+      const brand =
+        await prisma.brand.findUnique({
+          where: {
+            id:
+              req.params.brandId,
+          },
+        })
+
+      if (
+        !brand ||
+        brand.status !== 'approved'
+      ) {
+        return res.status(404).json({
+          error:
+            'Brand not found',
+        })
+      }
+
+      await prisma.brandFollow.upsert({
+        where: {
+          userId_brandId: {
+            userId:
+              req.user.userId,
+
+            brandId:
+              req.params.brandId,
+          },
+        },
+
+        update: {},
+
+        create: {
+          userId:
+            req.user.userId,
+
+          brandId:
+            req.params.brandId,
+        },
+      })
+
+      return res.json({
+        following: true,
+      })
+    } catch (error) {
+      console.error(
+        'Follow brand error:',
+        error
+      )
+
+      return res.status(500).json({
+        error:
+          'Internal server error',
+      })
+    }
+  }
+)
+
+
+/* =========================
+   UNFOLLOW BRAND
+========================= */
+
+app.delete(
+  '/api/brands/:brandId/follow',
+  authenticate,
+  requireRole('CUSTOMER'),
+  async (req: any, res) => {
+    try {
+      await prisma.brandFollow.deleteMany({
+        where: {
+          userId:
+            req.user.userId,
+
+          brandId:
+            req.params.brandId,
+        },
+      })
+
+      return res.json({
+        following: false,
+      })
+    } catch (error) {
+      console.error(
+        'Unfollow brand error:',
+        error
+      )
+
+      return res.status(500).json({
+        error:
+          'Internal server error',
+      })
+    }
+  }
+)
+
+
+/* =========================
+   ALL BRANDS - ADMIN
+========================= */
 
 app.get(
   '/api/brands',
@@ -1338,9 +1498,10 @@ app.get(
   }
 )
 
-/*
- * UPDATE BRAND STATUS
- */
+
+/* =========================
+   UPDATE BRAND STATUS
+========================= */
 
 app.patch(
   '/api/brands/:brandId/status',
@@ -1396,9 +1557,7 @@ app.patch(
           },
         })
 
-      return res.json(
-        brand
-      )
+      return res.json(brand)
     } catch (error) {
       console.error(
         'Update brand status error:',
@@ -1413,6 +1572,7 @@ app.patch(
   }
 )
 
+
 /* =========================
    START SERVER
 ========================= */
@@ -1425,4 +1585,3 @@ app.listen(
     )
   }
 )
-
