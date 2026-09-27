@@ -28,9 +28,9 @@ interface Product {
   brand?: {
     id: string
     name: string
+    status: string
     description?: string | null
     category?: string | null
-    status?: string
   }
 }
 
@@ -116,6 +116,7 @@ export default function ProductDetails() {
         brandId: product.brandId,
         brandName:
           product.brand?.name || 'Unknown Brand',
+        brandStatus: product.brand?.status || 'PENDING',
         stock: product.stock,
       },
       quantity

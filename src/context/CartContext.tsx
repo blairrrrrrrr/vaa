@@ -14,6 +14,7 @@ export interface CartItem {
   category: string
   brandId: string
   brandName: string
+  brandStatus: string
   stock: number
   quantity: number
 }
@@ -66,6 +67,12 @@ export function CartProvider({
     quantity = 1
   ) => {
     if (item.stock <= 0) {
+      return
+    }
+
+    // Check if brand is approved
+    if (item.brandStatus !== 'APPROVED') {
+      console.warn('Cannot add items from inactive brands')
       return
     }
 

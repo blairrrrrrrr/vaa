@@ -76,7 +76,7 @@ export default function Navbar() {
   }
 
   return (
-    <nav className="navbar navbar-expand-lg bg-white border-bottom sticky-top">
+    <nav className={`navbar navbar-expand-lg border-bottom sticky-top ${theme === 'dark' ? 'bg-dark' : 'bg-white'}`}>
       <div className="container">
         {/* Logo */}
         <Link
@@ -98,7 +98,7 @@ export default function Navbar() {
         <div className="d-none d-lg-flex align-items-center ms-auto gap-2">
           <Link
             to="/shop"
-            className="btn btn-link text-decoration-none text-dark"
+            className={`btn btn-link text-decoration-none ${theme === 'dark' ? 'text-white' : 'text-dark'}`}
           >
             Shop
           </Link>
@@ -106,7 +106,7 @@ export default function Navbar() {
           {user?.role !== 'BRAND' && (
             <Link
               to="/auth/brand-signup"
-              className="btn btn-link text-decoration-none text-dark"
+              className={`btn btn-link text-decoration-none ${theme === 'dark' ? 'text-white' : 'text-dark'}`}
             >
               Sell
             </Link>
@@ -115,7 +115,7 @@ export default function Navbar() {
           {/* Cart */}
           <Link
             to="/cart"
-            className="btn btn-link text-dark position-relative p-2 d-flex align-items-center justify-content-center"
+            className={`btn btn-link position-relative p-2 d-flex align-items-center justify-content-center ${theme === 'dark' ? 'text-white' : 'text-dark'}`}
             aria-label={`Shopping cart with ${itemCount} ${
               itemCount === 1 ? 'item' : 'items'
             }`}
@@ -145,7 +145,7 @@ export default function Navbar() {
           {/* Theme */}
           <button
             type="button"
-            className="btn btn-link text-dark p-2"
+            className={`btn btn-link p-2 ${theme === 'dark' ? 'text-white' : 'text-dark'}`}
             onClick={toggleTheme}
             aria-label="Toggle theme"
           >
@@ -164,7 +164,7 @@ export default function Navbar() {
             >
               <button
                 type="button"
-                className="btn btn-link text-dark text-decoration-none d-flex align-items-center gap-2"
+                className={`btn btn-link text-decoration-none d-flex align-items-center gap-2 ${theme === 'dark' ? 'text-white' : 'text-dark'}`}
                 onClick={() =>
                   setDropdownOpen(
                     current => !current
@@ -192,7 +192,7 @@ export default function Navbar() {
 
               {dropdownOpen && (
                 <div
-                  className="position-absolute end-0 mt-2 bg-white border rounded-3 shadow-lg overflow-hidden"
+                  className={`position-absolute end-0 mt-2 border rounded-3 shadow-lg overflow-hidden ${theme === 'dark' ? 'bg-dark' : 'bg-white'}`}
                   style={{
                     minWidth: '220px',
                     zIndex: 1050,
@@ -217,7 +217,7 @@ export default function Navbar() {
                   {user.role === 'BRAND' ? (
                     <Link
                       to="/brand/dashboard"
-                      className="dropdown-item d-flex align-items-center gap-2 py-2"
+                      className={`dropdown-item d-flex align-items-center gap-2 py-2 ${theme === 'dark' ? 'text-white' : ''}`}
                       onClick={() =>
                         setDropdownOpen(false)
                       }
@@ -228,7 +228,7 @@ export default function Navbar() {
                   ) : user.role === 'ADMIN' ? (
                     <Link
                       to="/admin/dashboard"
-                      className="dropdown-item d-flex align-items-center gap-2 py-2"
+                      className={`dropdown-item d-flex align-items-center gap-2 py-2 ${theme === 'dark' ? 'text-white' : ''}`}
                       onClick={() =>
                         setDropdownOpen(false)
                       }
@@ -239,7 +239,7 @@ export default function Navbar() {
                   ) : (
                     <Link
                       to="/shop"
-                      className="dropdown-item d-flex align-items-center gap-2 py-2"
+                      className={`dropdown-item d-flex align-items-center gap-2 py-2 ${theme === 'dark' ? 'text-white' : ''}`}
                       onClick={() =>
                         setDropdownOpen(false)
                       }
@@ -252,6 +252,7 @@ export default function Navbar() {
                   <button
                     type="button"
                     className="dropdown-item d-flex align-items-center gap-2 py-2 text-danger"
+                    style={{ color: theme === 'dark' ? '#ff6b6b' : undefined }}
                     onClick={handleSignOut}
                   >
                     <LogOut size={17} />
@@ -264,7 +265,7 @@ export default function Navbar() {
             <>
               <Link
                 to="/auth/signin"
-                className="btn btn-outline-dark"
+                className="btn btn-secondary"
               >
                 Sign In
               </Link>
@@ -289,7 +290,7 @@ export default function Navbar() {
           {/* Mobile Cart */}
           <Link
             to="/cart"
-            className="btn btn-link text-dark position-relative p-2"
+            className={`btn btn-link position-relative p-2 ${theme === 'dark' ? 'text-white' : 'text-dark'}`}
             aria-label="Shopping cart"
           >
             <ShoppingCart size={21} />
@@ -316,7 +317,7 @@ export default function Navbar() {
 
           <button
             type="button"
-            className="btn btn-link text-dark p-2"
+            className={`btn btn-link p-2 ${theme === 'dark' ? 'text-white' : 'text-dark'}`}
             onClick={toggleTheme}
             aria-label="Toggle theme"
           >
@@ -329,7 +330,7 @@ export default function Navbar() {
 
           <button
             type="button"
-            className="btn btn-link text-dark p-2"
+            className={`btn btn-link p-2 ${theme === 'dark' ? 'text-white' : 'text-dark'}`}
             onClick={() =>
               setMobileMenuOpen(
                 current => !current
@@ -348,12 +349,12 @@ export default function Navbar() {
 
       {/* Mobile Menu */}
       {mobileMenuOpen && (
-        <div className="d-lg-none border-top bg-white">
+        <div className={`d-lg-none border-top ${theme === 'dark' ? 'bg-dark' : 'bg-white'}`}>
           <div className="container py-3">
             <div className="d-flex flex-column gap-2">
               <Link
                 to="/shop"
-                className="btn btn-light text-start"
+                className={`btn text-start ${theme === 'dark' ? 'btn-outline-light text-white' : 'btn-light'}`}
                 onClick={handleMobileNavigation}
               >
                 Shop
@@ -362,7 +363,7 @@ export default function Navbar() {
               {user?.role !== 'BRAND' && (
                 <Link
                   to="/auth/brand-signup"
-                  className="btn btn-light text-start"
+                  className={`btn text-start ${theme === 'dark' ? 'btn-outline-light text-white' : 'btn-light'}`}
                   onClick={handleMobileNavigation}
                 >
                   Sell on VAA
@@ -371,7 +372,7 @@ export default function Navbar() {
 
               <Link
                 to="/cart"
-                className="btn btn-light text-start d-flex align-items-center justify-content-between"
+                className={`btn text-start d-flex align-items-center justify-content-between ${theme === 'dark' ? 'btn-outline-light text-white' : 'btn-light'}`}
                 onClick={handleMobileNavigation}
               >
                 <span className="d-flex align-items-center gap-2">
@@ -404,7 +405,7 @@ export default function Navbar() {
                   {user.role === 'BRAND' ? (
                     <Link
                       to="/brand/dashboard"
-                      className="btn btn-light text-start d-flex align-items-center gap-2"
+                      className={`btn text-start d-flex align-items-center gap-2 ${theme === 'dark' ? 'btn-outline-light text-white' : 'btn-light'}`}
                       onClick={handleMobileNavigation}
                     >
                       <LayoutDashboard size={18} />
@@ -413,7 +414,7 @@ export default function Navbar() {
                   ) : user.role === 'ADMIN' ? (
                     <Link
                       to="/admin/dashboard"
-                      className="btn btn-light text-start d-flex align-items-center gap-2"
+                      className={`btn text-start d-flex align-items-center gap-2 ${theme === 'dark' ? 'btn-outline-light text-white' : 'btn-light'}`}
                       onClick={handleMobileNavigation}
                     >
                       <LayoutDashboard size={18} />
@@ -423,7 +424,7 @@ export default function Navbar() {
 
                   <button
                     type="button"
-                    className="btn btn-light text-danger text-start d-flex align-items-center gap-2"
+                    className={`btn text-danger text-start d-flex align-items-center gap-2 ${theme === 'dark' ? 'btn-outline-light' : 'btn-light'}`}
                     onClick={handleSignOut}
                   >
                     <LogOut size={18} />

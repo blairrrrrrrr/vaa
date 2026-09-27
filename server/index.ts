@@ -31,6 +31,12 @@ type UserRole =
   | 'BRAND'
   | 'ADMIN'
 
+type BrandStatus =
+  | 'PENDING'
+  | 'APPROVED'
+  | 'REJECTED'
+  | 'SUSPENDED'
+
 interface AuthUser {
   userId: string
   role: UserRole
@@ -118,6 +124,49 @@ const requireRole = (
     }
 
     next()
+  }
+}
+
+const requireBrandStatus = (
+  allowedStatuses: BrandStatus[]
+) => {
+  return async (
+    req: any,
+    res: any,
+    next: any
+  ) => {
+    try {
+      const brand = await prisma.brand.findUnique({
+        where: {
+          userId: req.user.userId,
+        },
+        select: {
+          status: true,
+        },
+      })
+
+      if (!brand) {
+        return res.status(404).json({
+          error: 'Brand not found',
+        })
+      }
+
+      if (!allowedStatuses.includes(brand.status as BrandStatus)) {
+        return res.status(403).json({
+          error: `Brand status ${brand.status} is not allowed for this operation`,
+          status: brand.status,
+          allowedStatuses,
+        })
+      }
+
+      req.brandStatus = brand.status
+      next()
+    } catch (error) {
+      console.error('Brand status check error:', error)
+      return res.status(500).json({
+        error: 'Internal server error',
+      })
+    }
   }
 }
 
@@ -325,7 +374,7 @@ app.post(
                     ).trim()
                     : null,
 
-                status: 'pending',
+                status: 'PENDING',
               },
             },
           },
@@ -600,6 +649,60 @@ app.get(
 
 
 /* =========================
+   DELETE ACCOUNT
+========================= */
+
+app.delete(
+  '/api/user/delete-account',
+  authenticate,
+  async (req: any, res) => {
+    try {
+      const userId = req.user.userId
+
+      console.log('Attempting to delete account for user:', userId)
+
+      // Check if user has brand
+      const brand = await prisma.brand.findUnique({
+        where: {
+          userId: userId,
+        },
+      })
+
+      if (brand) {
+        console.log('Found brand, deleting brand:', brand.id)
+        // Delete brand and all related data (cascade should handle this)
+        await prisma.brand.delete({
+          where: {
+            userId: userId,
+          },
+        })
+      }
+
+      console.log('Deleting user:', userId)
+      // Delete user
+      await prisma.user.delete({
+        where: {
+          id: userId,
+        },
+      })
+
+      console.log('Account deleted successfully')
+      return res.json({
+        message: 'Account deleted successfully',
+      })
+    } catch (error: any) {
+      console.error('Delete account error:', error)
+      console.error('Error details:', error.message)
+      console.error('Error code:', error.code)
+      return res.status(500).json({
+        error: error.message || 'Failed to delete account',
+      })
+    }
+  }
+)
+
+
+/* =========================
    LOGGED-IN BRAND
 ========================= */
 
@@ -683,7 +786,7 @@ app.get(
         await prisma.product.findMany({
           where: {
             brand: {
-              status: 'approved',
+              status: 'APPROVED',
             },
           },
 
@@ -721,12 +824,12 @@ app.get(
 )
 
 
-/* =========================
+/* 
    BRAND STOREFRONT
    IMPORTANT:
    THIS MUST COME BEFORE
    /api/products/:productId
-========================= */
+*/
 
 app.get(
   '/api/products/brand/:brandId',
@@ -777,7 +880,7 @@ app.get(
 
       if (
         !brand ||
-        brand.status !== 'approved'
+        brand.status !== 'APPROVED'
       ) {
         return res.status(404).json({
           error:
@@ -817,10 +920,7 @@ app.get(
   }
 )
 
-
-/* =========================
-   SINGLE PRODUCT
-========================= */
+// single product
 
 app.get(
   '/api/products/:productId',
@@ -833,7 +933,7 @@ app.get(
               req.params.productId,
 
             brand: {
-              status: 'approved',
+              status: 'APPROVED',
             },
           },
 
@@ -873,14 +973,13 @@ app.get(
 )
 
 
-/* =========================
-   CREATE PRODUCT
-========================= */
+// create product
 
 app.post(
   '/api/products',
   authenticate,
   requireRole('BRAND'),
+  requireBrandStatus(['APPROVED', 'PENDING']),
   async (req: any, res) => {
     try {
       const {
@@ -1001,14 +1100,13 @@ app.post(
 )
 
 
-/* =========================
-   UPDATE PRODUCT
-========================= */
+// update product
 
 app.patch(
   '/api/products/:productId',
   authenticate,
   requireRole('BRAND'),
+  requireBrandStatus(['APPROVED', 'PENDING']),
   async (req: any, res) => {
     try {
       const brand =
@@ -1191,14 +1289,13 @@ app.patch(
 )
 
 
-/* =========================
-   DELETE PRODUCT
-========================= */
+// delete product
 
 app.delete(
   '/api/products/:productId',
   authenticate,
   requireRole('BRAND'),
+  requireBrandStatus(['APPROVED', 'PENDING']),
   async (req: any, res) => {
     try {
       const brand =
@@ -1261,9 +1358,7 @@ app.delete(
 )
 
 
-/* =========================
-   PUBLIC BRANDS
-========================= */
+// public brands
 
 app.get(
   '/api/brands/public',
@@ -1272,7 +1367,7 @@ app.get(
       const brands =
         await prisma.brand.findMany({
           where: {
-            status: 'approved',
+            status: 'APPROVED',
           },
 
           select: {
@@ -1304,9 +1399,7 @@ app.get(
 )
 
 
-/* =========================
-   FOLLOW BRAND
-========================= */
+// follow brand
 
 app.get(
   '/api/brands/:brandId/follow',
@@ -1345,10 +1438,7 @@ app.get(
   }
 )
 
-
-/* =========================
-   FOLLOW BRAND
-========================= */
+// follow brand
 
 app.post(
   '/api/brands/:brandId/follow',
@@ -1366,7 +1456,7 @@ app.post(
 
       if (
         !brand ||
-        brand.status !== 'approved'
+        brand.status !== 'APPROVED'
       ) {
         return res.status(404).json({
           error:
@@ -1414,9 +1504,7 @@ app.post(
 )
 
 
-/* =========================
-   UNFOLLOW BRAND
-========================= */
+// unfollow brand
 
 app.delete(
   '/api/brands/:brandId/follow',
@@ -1452,9 +1540,7 @@ app.delete(
 )
 
 
-/* =========================
-   ALL BRANDS - ADMIN
-========================= */
+// all brands - admin
 
 app.get(
   '/api/brands',
@@ -1514,9 +1600,10 @@ app.patch(
       } = req.body
 
       const allowedStatuses = [
-        'pending',
-        'approved',
-        'rejected',
+        'PENDING',
+        'APPROVED',
+        'REJECTED',
+        'SUSPENDED',
       ]
 
       if (
@@ -1526,7 +1613,7 @@ app.patch(
       ) {
         return res.status(400).json({
           error:
-            'Invalid status. Use pending, approved or rejected.',
+            'Invalid status. Use PENDING, APPROVED, REJECTED, or SUSPENDED.',
         })
       }
 

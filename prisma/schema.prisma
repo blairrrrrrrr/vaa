@@ -16,6 +16,13 @@ enum UserRole {
   ADMIN
 }
 
+enum BrandStatus {
+  PENDING
+  APPROVED
+  REJECTED
+  SUSPENDED
+}
+
 enum OrderStatus {
   PENDING
   PROCESSING
@@ -42,19 +49,19 @@ model User {
 }
 
 model Brand {
-  id          String    @id @default(cuid())
+  id          String      @id @default(cuid())
   name        String
   description String?
   category    String?
-  status      String    @default("pending") // pending, approved, rejected
-  userId      String    @unique
-  user        User      @relation(fields: [userId], references: [id], onDelete: Cascade)
-  createdAt   DateTime  @default(now())
-  updatedAt   DateTime  @updatedAt
-  
+  status      BrandStatus @default(PENDING)
+  userId      String      @unique
+  user        User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+  createdAt   DateTime    @default(now())
+  updatedAt   DateTime    @updatedAt
+
   products    Product[]
   followers BrandFollow[]
-  
+
   @@index([userId])
 }
 

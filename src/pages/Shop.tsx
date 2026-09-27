@@ -140,10 +140,10 @@ export default function Shop() {
                 style={{ height: '48px' }}
               >
                 <option value="all">All Prices</option>
-                <option value="under-50">Under Ksh 500</option>
-                <option value="50-100">Ksh 500 - Ksh 1000</option>
-                <option value="100-200">Ksh 1000 - Ksh 2000</option>
-                <option value="200+">Ksh 2000+</option>
+                <option value="under-500">Under Ksh 500</option>
+                <option value="500-1000">Ksh 500 - Ksh 1000</option>
+                <option value="1000-2000">Ksh 1000 - Ksh 2000</option>
+                <option value="2000+">Ksh 2000+</option>
               </select>
             </div>
           </div>
@@ -176,7 +176,7 @@ export default function Shop() {
                   <Button
                     variant="ghost"
                     size="icon"
-                    className={`position-absolute top-0 end-0 m-2 bg-white bg-opacity-90 ${favorites.has(product.id) ? 'text-danger' : ''
+                    className={`position-absolute top-0 end-0 m-2 bg-none bg-opacity-10 ${favorites.has(product.id) ? 'text-danger' : ''
                       }`}
                     style={{ width: '36px', height: '36px' }}
                     onClick={() => toggleFavorite(product.id)}
@@ -185,7 +185,12 @@ export default function Shop() {
                   </Button>
                 </div>
                 <CardContent className="p-3">
-                  <p className="small text-primary fw-medium mb-1">{product.brand?.name || 'Unknown Brand'}</p>
+                  <Link
+                    to={`/brand/${product.brandId}`}
+                    className="text-decoration-none text-primary"
+                  >
+                    <p className="small text-primary fw-medium mb-1">{product.brand?.name || 'Unknown Brand'}</p>
+                  </Link>
                   <Link
                     to={`/product/${product.id}`}
                     className="text-decoration-none text-dark"
@@ -224,6 +229,7 @@ export default function Shop() {
                         brandId: product.brandId,
                         brandName:
                           product.brand?.name || 'Unknown Brand',
+                        brandStatus: product.brand?.status || 'PENDING',
                         stock: product.stock,
                       })
                     }
