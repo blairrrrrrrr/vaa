@@ -25,8 +25,8 @@ export default function AdminDashboard() {
       .catch(() => setLoading(false))
   }, [])
 
-  const pendingBrands = brands.filter((b: any) => b.status === 'pending')
-  const approvedBrands = brands.filter((b: any) => b.status === 'approved')
+  const pendingBrands = brands.filter((b: any) => b.status === 'PENDING')
+  const approvedBrands = brands.filter((b: any) => b.status === 'APPROVED')
 
   const stats = {
     totalUsers: brands.length * 30, // Estimated
